@@ -7,6 +7,9 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
+// Import the react-day-picker styles
+import "react-day-picker/dist/style.css"
+
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
@@ -61,26 +64,19 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   }
 
   return (
-    <div
-      className="calendar-wrapper fixed inset-0 z-[9999] flex items-center justify-center bg-black/20"
-      style={{ pointerEvents: "none" }}
-    >
-      <div className="relative" style={{ pointerEvents: "auto" }}>
-        <DayPicker
-          showOutsideDays={showOutsideDays}
-          className={cn("p-3 bg-white rounded-md shadow-lg border border-gray-200", className)}
-          classNames={simpleClassNames}
-          components={{
-            IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-            IconRight: () => <ChevronRight className="h-4 w-4" />,
-          }}
-          formatters={{
-            formatWeekdayName: safeFormatWeekday,
-          }}
-          {...props}
-        />
-      </div>
-    </div>
+    <DayPicker
+      showOutsideDays={showOutsideDays}
+      className={cn("p-3 bg-white rounded-md shadow-md z-50", className)}
+      classNames={simpleClassNames}
+      components={{
+        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+        IconRight: () => <ChevronRight className="h-4 w-4" />,
+      }}
+      formatters={{
+        formatWeekdayName: safeFormatWeekday,
+      }}
+      {...props}
+    />
   )
 }
 

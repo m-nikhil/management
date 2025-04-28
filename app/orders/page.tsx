@@ -7,7 +7,20 @@ import { useToast } from "@/components/ui/use-toast"
 import { getActiveAndFutureHolidays } from "@/app/actions/holiday-actions"
 import type { Holiday } from "@/app/actions/holiday-actions"
 
+// Add global styles for calendar in orders page
+
 export default function OrdersPage() {
+  // Add this useEffect at the beginning of the component
+  useEffect(() => {
+    // Add a class to the body when on orders page
+    document.body.classList.add("orders-page")
+
+    // Clean up when component unmounts
+    return () => {
+      document.body.classList.remove("orders-page")
+    }
+  }, [])
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [holidays, setHolidays] = useState<Holiday[]>([])
   const [isLoading, setIsLoading] = useState(true)

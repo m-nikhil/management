@@ -96,7 +96,6 @@ body {
 /* Calendar Styles */
 .rdp-months {
   display: flex !important;
-  justify-content: center !important;
 }
 
 .rdp-month {
@@ -144,7 +143,7 @@ body {
   cursor: pointer !important;
 }
 
-.rdp-button:hover:not([disabled]) {
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
   background-color: hsl(var(--accent)) !important;
   color: hsl(var(--accent-foreground)) !important;
 }
@@ -156,7 +155,7 @@ body {
 
 .rdp-day_selected:hover {
   background-color: hsl(var(--primary)) !important;
-  opacity: 0.8 !important;
+  color: hsl(var(--primary-foreground)) !important;
 }
 
 .rdp-day_today {
@@ -203,4 +202,14 @@ body {
   font-weight: 600 !important;
   font-size: 1rem !important;
   color: hsl(var(--foreground)) !important;
+}
+
+/* Fix for calendar popovers on orders page */
+.orders-page .rdp {
+  position: relative;
+  z-index: 50 !important;
+}
+
+.orders-page [data-radix-popper-content-wrapper] {
+  z-index: 100 !important;
 }

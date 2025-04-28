@@ -44,6 +44,23 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
       className={cn("p-3 bg-card text-card-foreground rounded-md shadow-sm border border-border", className)}
       classNames={{
         ...classNames,
+        day_selected: "rdp-day_selected",
+        day_today: "rdp-day_today",
+        day_outside: "rdp-day_outside",
+        day_disabled: "rdp-day_disabled",
+        day: "rdp-day",
+        button: "rdp-button",
+        nav_button: "rdp-nav_button",
+        caption: "rdp-caption",
+        caption_label: "rdp-caption_label",
+        head_cell: "rdp-head_cell",
+        cell: "rdp-cell",
+        table: "rdp-table",
+        month: "rdp-month",
+        months: "rdp-months",
+        nav: "rdp-nav",
+        head_row: "rdp-head_row",
+        row: "rdp-row",
       }}
       components={{
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,

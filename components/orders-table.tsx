@@ -1706,14 +1706,15 @@ export function OrdersTable({
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-0">
+                            <PopoverContent className="w-auto p-0 z-50">
                               <Calendar
                                 mode="single"
                                 selected={parseISO(editingTask?.endDate || task.endDate)}
                                 onSelect={(date) => {
-                                  handleEndDateSelect(date)
+                                  if (date) handleEndDateSelect(date)
                                 }}
                                 initialFocus
+                                defaultMonth={parseISO(editingTask?.endDate || task.endDate)}
                               />
                             </PopoverContent>
                           )}
@@ -1741,7 +1742,7 @@ export function OrdersTable({
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-0">
+                            <PopoverContent className="w-auto p-0 z-50">
                               <Calendar
                                 mode="single"
                                 selected={parseISO(editingTask?.dueDate || task.dueDate)}
@@ -1767,6 +1768,7 @@ export function OrdersTable({
                                   })
                                 }}
                                 initialFocus
+                                defaultMonth={parseISO(editingTask?.dueDate || task.dueDate)}
                               />
                             </PopoverContent>
                           )}
@@ -2129,14 +2131,15 @@ export function OrdersTable({
                               </Button>
                             </PopoverTrigger>
                             {viewingTask?.status !== "Completed" && (
-                              <PopoverContent className="w-auto p-0">
+                              <PopoverContent className="w-auto p-0 z-50">
                                 <Calendar
                                   mode="single"
                                   selected={parseISO(editingTask?.endDate || "")}
                                   onSelect={(date) => {
-                                    handleEndDateSelect(date)
+                                    if (date) handleEndDateSelect(date)
                                   }}
                                   initialFocus
+                                  defaultMonth={parseISO(editingTask?.endDate || "")}
                                 />
                               </PopoverContent>
                             )}
@@ -2157,7 +2160,7 @@ export function OrdersTable({
                               </Button>
                             </PopoverTrigger>
                             {viewingTask?.status !== "Completed" && (
-                              <PopoverContent className="w-auto p-0">
+                              <PopoverContent className="w-auto p-0 z-50">
                                 <Calendar
                                   mode="single"
                                   selected={parseISO(editingTask?.dueDate || "")}
@@ -2183,6 +2186,7 @@ export function OrdersTable({
                                     })
                                   }}
                                   initialFocus
+                                  defaultMonth={parseISO(editingTask?.dueDate || "")}
                                 />
                               </PopoverContent>
                             )}

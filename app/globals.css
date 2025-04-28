@@ -127,13 +127,14 @@ body {
 .rdp-head_cell {
   font-weight: 500 !important;
   font-size: 0.8rem !important;
+  color: hsl(var(--muted-foreground)) !important;
 }
 
 .rdp-button {
   width: 36px !important;
   height: 36px !important;
   font-size: 0.875rem !important;
-  border-radius: 9999px !important;
+  border-radius: var(--radius) !important;
   margin: 0 auto !important;
   padding: 0 !important;
   background: none !important;
@@ -144,25 +145,51 @@ body {
 }
 
 .rdp-button:hover:not([disabled]) {
-  background-color: #f3f4f6 !important;
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
 }
 
 .rdp-day_selected {
-  background-color: #2563eb !important;
-  color: white !important;
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
 }
 
 .rdp-day_selected:hover {
-  background-color: #1d4ed8 !important;
+  background-color: hsl(var(--primary)) !important;
+  opacity: 0.8 !important;
 }
 
 .rdp-day_today {
   font-weight: bold !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.rdp-day_outside {
+  opacity: 0.5 !important;
+}
+
+.rdp-day_disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
 }
 
 .rdp-nav {
   display: flex !important;
   align-items: center !important;
+}
+
+.rdp-nav_button {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  background-color: transparent !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  cursor: pointer !important;
+}
+
+.rdp-nav_button:hover {
+  background-color: hsl(var(--accent)) !important;
 }
 
 .rdp-caption {
@@ -175,4 +202,5 @@ body {
 .rdp-caption_label {
   font-weight: 600 !important;
   font-size: 1rem !important;
+  color: hsl(var(--foreground)) !important;
 }

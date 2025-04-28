@@ -41,7 +41,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3 bg-white rounded-md shadow-md", className)}
+      className={cn("p-3 bg-card text-card-foreground rounded-md shadow-sm border border-border", className)}
       classNames={{
         ...classNames,
       }}

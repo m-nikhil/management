@@ -61,19 +61,26 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   }
 
   return (
-    <DayPicker
-      showOutsideDays={showOutsideDays}
-      className={cn("p-3 bg-white rounded-md shadow-md z-[999] relative", className)}
-      classNames={simpleClassNames}
-      components={{
-        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-        IconRight: () => <ChevronRight className="h-4 w-4" />,
-      }}
-      formatters={{
-        formatWeekdayName: safeFormatWeekday,
-      }}
-      {...props}
-    />
+    <div
+      className="calendar-wrapper fixed inset-0 z-[9999] flex items-center justify-center bg-black/20"
+      style={{ pointerEvents: "none" }}
+    >
+      <div className="relative" style={{ pointerEvents: "auto" }}>
+        <DayPicker
+          showOutsideDays={showOutsideDays}
+          className={cn("p-3 bg-white rounded-md shadow-lg border border-gray-200", className)}
+          classNames={simpleClassNames}
+          components={{
+            IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+            IconRight: () => <ChevronRight className="h-4 w-4" />,
+          }}
+          formatters={{
+            formatWeekdayName: safeFormatWeekday,
+          }}
+          {...props}
+        />
+      </div>
+    </div>
   )
 }
 

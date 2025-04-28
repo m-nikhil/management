@@ -6,9 +6,6 @@ import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 
-// Import the react-day-picker styles
-import "react-day-picker/dist/style.css"
-
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
@@ -26,7 +23,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
 
   // Simple formatter function that doesn't rely on complex date operations
   const safeFormatWeekday = (date: Date) => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    const days = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
     try {
       if (date instanceof Date && !isNaN(date.getTime())) {
         return days[date.getDay()]
@@ -39,133 +36,82 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   }
 
   return (
-    <div className="rdp-root-override">
+    <div className="calendar-wrapper p-3 bg-white rounded-md shadow-md">
       <style jsx global>{`
-        /* Base calendar styles */
-        .rdp-root-override .rdp {
-          margin: 0;
+        /* Force grid layout for calendar */
+        .rdp-months {
+          display: flex !important;
+          justify-content: center !important;
         }
-        
-        /* Month styles */
-        .rdp-root-override .rdp-months {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
+        .rdp-month {
+          margin: 0 !important;
         }
-        
-        /* Caption styles */
-        .rdp-root-override .rdp-caption {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 0.25rem;
-          position: relative;
+        .rdp-table {
+          margin: 0 !important;
+          border-collapse: collapse !important;
         }
-        
-        .rdp-root-override .rdp-caption_label {
-          font-size: 0.875rem;
-          font-weight: 500;
+        .rdp-head_row,
+        .rdp-row {
+          display: grid !important;
+          grid-template-columns: repeat(7, 1fr) !important;
+          margin: 8px 0 !important;
         }
-        
-        /* Navigation styles */
-        .rdp-root-override .rdp-nav {
-          display: flex;
-          gap: 0.25rem;
+        .rdp-head_cell,
+        .rdp-cell {
+          width: 40px !important;
+          height: 36px !important;
+          text-align: center !important;
+          padding: 0 !important;
+          margin: 0 !important;
         }
-        
-        /* Table styles */
-        .rdp-root-override .rdp-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 0.25rem;
+        .rdp-head_cell {
+          font-weight: 500 !important;
+          font-size: 0.8rem !important;
         }
-        
-        /* Head row styles */
-        .rdp-root-override .rdp-head_row {
-          display: flex;
+        .rdp-button {
+          width: 36px !important;
+          height: 36px !important;
+          font-size: 0.875rem !important;
+          border-radius: 9999px !important;
+          margin: 0 auto !important;
+          padding: 0 !important;
+          background: none !important;
+          color: inherit !important;
+          font-family: inherit !important;
+          line-height: inherit !important;
+          cursor: pointer !important;
         }
-        
-        /* Head cell styles */
-        .rdp-root-override .rdp-head_cell {
-          color: var(--muted-foreground, #6b7280);
-          font-size: 0.75rem;
-          font-weight: 400;
-          text-align: center;
-          width: 2.25rem;
-          padding: 0.25rem 0;
+        .rdp-button:hover:not([disabled]) {
+          background-color: #f3f4f6 !important;
         }
-        
-        /* Row styles */
-        .rdp-root-override .rdp-row {
-          display: flex;
-          width: 100%;
-          margin-top: 0.5rem;
+        .rdp-day_selected {
+          background-color: #2563eb !important;
+          color: white !important;
         }
-        
-        /* Cell styles */
-        .rdp-root-override .rdp-cell {
-          text-align: center;
-          padding: 0;
-          position: relative;
-          width: 2.25rem;
-          height: 2.25rem;
+        .rdp-day_selected:hover {
+          background-color: #1d4ed8 !important;
         }
-        
-        /* Day styles */
-        .rdp-root-override .rdp-day {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 2.25rem;
-          height: 2.25rem;
-          font-size: 0.875rem;
-          border-radius: 0.375rem;
-          cursor: pointer;
-          border: none;
-          background: transparent;
+        .rdp-day_today {
+          font-weight: bold !important;
         }
-        
-        .rdp-root-override .rdp-day:hover:not([disabled]) {
-          background-color: var(--accent, #f3f4f6);
-          color: var(--accent-foreground, #111827);
+        .rdp-nav {
+          display: flex !important;
+          align-items: center !important;
         }
-        
-        .rdp-root-override .rdp-day_selected {
-          background-color: var(--primary, #2563eb);
-          color: var(--primary-foreground, #ffffff);
+        .rdp-caption {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          padding: 0 0 8px 0 !important;
         }
-        
-        .rdp-root-override .rdp-day_today {
-          background-color: var(--accent, #f3f4f6);
-          color: var(--accent-foreground, #111827);
-        }
-        
-        .rdp-root-override .rdp-day_outside {
-          opacity: 0.5;
-        }
-        
-        .rdp-root-override .rdp-day_disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        .rdp-root-override .rdp-button {
-          border-radius: 0.375rem;
-          height: 2.25rem;
-          width: 2.25rem;
-          padding: 0;
-          background: transparent;
-          opacity: 0.5;
-        }
-        
-        .rdp-root-override .rdp-button:hover {
-          opacity: 1;
-          background-color: var(--accent, #f3f4f6);
+        .rdp-caption_label {
+          font-weight: 600 !important;
+          font-size: 1rem !important;
         }
       `}</style>
       <DayPicker
         showOutsideDays={showOutsideDays}
-        className={cn("p-3 bg-white rounded-md shadow-md", className)}
+        className={cn("", className)}
         classNames={{
           ...classNames,
         }}

@@ -1110,26 +1110,6 @@ export function CalendarWithTasks() {
             days_to_complete: updatedTask.daysToComplete,
           }
 
-          // Try to update the new columns if they're supported
-          try {
-            // First check if the columns exist by making a small query
-            const { data: columnCheckData, error: columnCheckError } = await supabase
-              .from("tasks")
-              .select("days_to_complete, number_of_holidays")
-              .limit(1)
-
-            // If the query succeeds, the columns exist
-            if (!columnCheckError) {
-              console.log("days_to_complete and number_of_holidays columns exist, updating them")
-              updateData.days_to_complete = updatedTask.daysToComplete
-              updateData.number_of_holidays = holidayDates.length // Use the holidayDates array length
-            } else {
-              console.log("days_to_complete and number_of_holidays columns don't exist yet, skipping them")
-            }
-          } catch (error) {
-            console.log("Error checking for columns, skipping days_to_complete and number_of_holidays")
-          }
-
           // Update task in Supabase with the appropriate fields
           const { error } = await supabase.from("tasks").update(updateData).eq("id", updatedTask.id)
 

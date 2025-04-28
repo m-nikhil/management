@@ -39,18 +39,33 @@ interface OrdersTableProps {
 
 // Add this validation function near the top of the file, before the OrdersTable component
 function validateTaskDuration(startDate: string, endDate: string): { valid: boolean; message?: string } {
-  const start = parseISO(startDate)
-  const end = parseISO(endDate)
-  const durationInDays = differenceInDays(end, start) + 1
-
-  if (durationInDays > 30) {
+  if (!startDate || !endDate) {
     return {
       valid: false,
-      message: `Task duration cannot exceed 30 days. Current duration: ${durationInDays} days.`,
+      message: "Start date and end date are required.",
     }
   }
 
-  return { valid: true }
+  try {
+    const start = parseISO(startDate)
+    const end = parseISO(endDate)
+    const durationInDays = differenceInDays(end, start) + 1
+
+    if (durationInDays > 30) {
+      return {
+        valid: false,
+        message: `Task duration cannot exceed 30 days. Current duration: ${durationInDays} days.`,
+      }
+    }
+
+    return { valid: true }
+  } catch (error) {
+    console.error("Error validating task duration:", error)
+    return {
+      valid: false,
+      message: "Invalid date format.",
+    }
+  }
 }
 
 // Add this function near the top of the file, after the validateTaskDuration function
@@ -84,26 +99,31 @@ const calculateWorkingDays = (startDate: Date, endDate: Date): { workingDays: nu
 
 // Add this function to check if a task has a holiday count mismatch
 const hasHolidayCountMismatch = (task: Task) => {
-  if (task.numberOfHolidays === undefined) return false
+  if (task.numberOfHolidays === undefined || !task.startDate || !task.endDate) return false
 
-  const startDate = parseISO(task.startDate)
-  const endDate = parseISO(task.endDate)
+  try {
+    const startDate = parseISO(task.startDate)
+    const endDate = parseISO(task.endDate)
 
-  // Count holidays between dates using a simplified version
-  let holidayCount = 0
-  const totalDays = differenceInDays(endDate, startDate) + 1
+    // Count holidays between dates using a simplified version
+    let holidayCount = 0
+    const totalDays = differenceInDays(endDate, startDate) + 1
 
-  // This is a simplified approach - in production code, we would use the same isHoliday function
-  for (let i = 0; i < totalDays; i++) {
-    const currentDate = addDays(startDate, i)
-    const dayOfWeek = currentDate.getDay()
-    // Consider weekends as holidays for this example - adjust based on your holiday logic
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      holidayCount++
+    // This is a simplified approach - in production code, we would use the same isHoliday function
+    for (let i = 0; i < totalDays; i++) {
+      const currentDate = addDays(startDate, i)
+      const dayOfWeek = currentDate.getDay()
+      // Consider weekends as holidays for this example - adjust based on your holiday logic
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        holidayCount++
+      }
     }
-  }
 
-  return task.numberOfHolidays !== holidayCount
+    return task.numberOfHolidays !== holidayCount
+  } catch (error) {
+    console.error("Error in hasHolidayCountMismatch:", error)
+    return false
+  }
 }
 
 // Update the function signature to include the new prop with a default value
@@ -245,6 +265,9 @@ export function OrdersTable({
     }
   }, [toast, setTasks, isRefreshing]) // Add isRefreshing to dependencies
 
+  // Add event listeners to refresh tasks when a new task is created or updated
+  // Update the useEffect that sets up the subscription
+
   // Set up a subscription to listen for changes in the tasks table
   useEffect(() => {
     let subscription: any = null
@@ -266,6 +289,25 @@ export function OrdersTable({
       }
     }
 
+    // Set up event listeners for task updates
+    const handleTaskCreated = () => {
+      console.log("Task created event received in orders table, refreshing tasks")
+      if (isMounted.current) {
+        refreshTasks()
+      }
+    }
+
+    const handleTasksUpdated = () => {
+      console.log("Tasks updated event received in orders table, refreshing tasks")
+      if (isMounted.current) {
+        refreshTasks()
+      }
+    }
+
+    // Add event listeners
+    window.addEventListener("task-created", handleTaskCreated)
+    window.addEventListener("tasks-updated", handleTasksUpdated)
+
     return () => {
       if (subscription) {
         try {
@@ -274,6 +316,10 @@ export function OrdersTable({
           console.error("Error unsubscribing:", error)
         }
       }
+
+      // Remove event listeners
+      window.removeEventListener("task-created", handleTaskCreated)
+      window.removeEventListener("tasks-updated", handleTasksUpdated)
     }
   }, [refreshTasks]) // Only depend on refreshTasks
 
@@ -395,14 +441,18 @@ export function OrdersTable({
 
   // Generate change details for logging
   const generateChangeDetails = (original: Task, updated: Task): string => {
+    if (!original || !updated) {
+      return "No change details available"
+    }
+
     const changes: string[] = []
 
     if (original.orderNumber !== updated.orderNumber) {
-      changes.push(`Order Number: ${original.orderNumber} → ${updated.orderNumber}`)
+      changes.push(`Order Number: ${original.orderNumber || "None"} → ${updated.orderNumber || "None"}`)
     }
 
     if (original.orderName !== updated.orderName) {
-      changes.push(`Order Name: ${original.orderName} → ${updated.orderName}`)
+      changes.push(`Order Name: ${original.orderName || "None"} → ${updated.orderName || "None"}`)
     }
 
     if (original.customerName !== updated.customerName) {
@@ -410,36 +460,51 @@ export function OrdersTable({
     }
 
     if (original.status !== updated.status) {
-      changes.push(`Status: ${original.status} → ${updated.status}`)
+      changes.push(`Status: ${original.status || "None"} → ${updated.status || "None"}`)
     }
 
     if (original.effort !== updated.effort) {
-      changes.push(`Effort: ${original.effort} → ${updated.effort}`)
+      changes.push(`Effort: ${original.effort || "None"} → ${updated.effort || "None"}`)
     }
 
     if (original.startDate !== updated.startDate) {
-      changes.push(
-        `Start Date: ${format(parseISO(original.startDate), "MMM d, yyyy")} → ${format(parseISO(updated.startDate), "MMM d, yyyy")}`,
-      )
+      try {
+        changes.push(
+          `Start Date: ${original.startDate ? format(parseISO(original.startDate), "MMM d, yyyy") : "None"} → ${updated.startDate ? format(parseISO(updated.startDate), "MMM d, yyyy") : "None"}`,
+        )
+      } catch (error) {
+        console.error("Error formatting start date:", error)
+        changes.push(`Start Date: Changed`)
+      }
     }
 
     if (original.endDate !== updated.endDate) {
-      changes.push(
-        `End Date: ${format(parseISO(original.endDate), "MMM d, yyyy")} → ${format(parseISO(updated.endDate), "MMM d, yyyy")}`,
-      )
+      try {
+        changes.push(
+          `End Date: ${original.endDate ? format(parseISO(original.endDate), "MMM d, yyyy") : "None"} → ${updated.endDate ? format(parseISO(updated.endDate), "MMM d, yyyy") : "None"}`,
+        )
+      } catch (error) {
+        console.error("Error formatting end date:", error)
+        changes.push(`End Date: Changed`)
+      }
     }
 
     if (original.dueDate !== updated.dueDate) {
-      changes.push(
-        `Due Date: ${format(parseISO(original.dueDate), "MMM d, yyyy")} → ${format(parseISO(updated.dueDate), "MMM d, yyyy")}`,
-      )
+      try {
+        changes.push(
+          `Due Date: ${original.dueDate ? format(parseISO(original.dueDate), "MMM d, yyyy") : "None"} → ${updated.dueDate ? format(parseISO(updated.dueDate), "MMM d, yyyy") : "None"}`,
+        )
+      } catch (error) {
+        console.error("Error formatting due date:", error)
+        changes.push(`Due Date: Changed`)
+      }
     }
 
     if (original.notes !== updated.notes) {
-      if (updated.notes.length > 50) {
+      if ((updated.notes || "").length > 50) {
         changes.push(`Notes updated`)
       } else {
-        changes.push(`Notes: "${original.notes || "None"}" → "${updated.notes || "None"}`)
+        changes.push(`Notes: "${original.notes || "None"}" → "${updated.notes || "None"}"`)
       }
     }
 
@@ -520,7 +585,25 @@ export function OrdersTable({
         days_to_complete: editingTask.daysToComplete || daysToComplete,
       }
 
+      // Try to update the new columns if they're supported
+      try {
+        // First check if the columns exist by making a small query
+        const { data: columnCheckData, error: columnCheckError } = await supabase
+          .from("tasks")
+          .select("days_to_complete, number_of_holidays")
+          .limit(1)
 
+        // If the query succeeds, the columns exist
+        if (!columnCheckError) {
+          console.log("days_to_complete and number_of_holidays columns exist, updating them")
+          updateData.days_to_complete = editingTask.daysToComplete || daysToComplete
+          updateData.number_of_holidays = holidayDates.length // Use the holiday dates array length
+        } else {
+          console.log("days_to_complete and number_of_holidays columns don't exist yet, skipping them")
+        }
+      } catch (columnError) {
+        console.log("Error checking for columns, skipping days_to_complete and number_of_holidays")
+      }
 
       // Update task in Supabase
       const { error } = await supabase.from("tasks").update(updateData).eq("id", editingTask.id)
@@ -641,6 +724,8 @@ export function OrdersTable({
 
   // Add this function to calculate holiday dates between two dates
   const getHolidayDatesInRange = (startDate: Date, endDate: Date, holidays: Holiday[]): string[] => {
+    if (!startDate || !endDate) return []
+
     const holidayDates: string[] = []
     const currentDate = new Date(startDate)
 
@@ -762,7 +847,25 @@ export function OrdersTable({
         days_to_complete: editingTask.daysToComplete || daysToComplete,
       }
 
-  
+      // Try to update the new columns if they're supported
+      try {
+        // First check if the columns exist by making a small query
+        const { data: columnCheckData, error: columnCheckError } = await supabase
+          .from("tasks")
+          .select("days_to_complete, number_of_holidays")
+          .limit(1)
+
+        // If the query succeeds, the columns exist
+        if (!columnCheckError) {
+          console.log("days_to_complete and number_of_holidays columns exist, updating them")
+          updateData.days_to_complete = editingTask.daysToComplete || daysToComplete
+          updateData.number_of_holidays = holidayDates.length // Use the holiday dates array length
+        } else {
+          console.log("days_to_complete and number_of_holidays columns don't exist yet, skipping them")
+        }
+      } catch (columnError) {
+        console.log("Error checking for columns, skipping days_to_complete and number_of_holidays")
+      }
 
       // Update task in Supabase
       const { error } = await supabase.from("tasks").update(updateData).eq("id", editingTask.id)
@@ -835,28 +938,32 @@ export function OrdersTable({
   // Add this function before the return statement
   // Update the isHoliday function to properly check for holidays
   const isHoliday = (date: Date, holidays: Holiday[]): boolean => {
+    if (!date) return false
+
     // First check if it's a weekend (0 = Sunday, 6 = Saturday)
     const dayOfWeek = date.getDay()
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       return true
     }
 
+    if (!holidays || !Array.isArray(holidays)) return false
+
     // Then check if it's in the holidays array
     const dateStr = format(date, "yyyy-MM-dd")
 
     // Check for specific date holidays
     const isSpecificDateHoliday = holidays.some(
-      (holiday) => holiday.holiday_type === "specific_date" && holiday.specific_date === dateStr,
+      (holiday) => holiday && holiday.holiday_type === "specific_date" && holiday.specific_date === dateStr,
     )
 
     // Check for day of week holidays
     const isDayOfWeekHoliday = holidays.some(
-      (holiday) => holiday.holiday_type === "day_of_week" && holiday.day_of_week === dayOfWeek,
+      (holiday) => holiday && holiday.holiday_type === "day_of_week" && holiday.day_of_week === dayOfWeek,
     )
 
     // Check for exceptions (working days that override holidays)
     const isException = holidays.some(
-      (holiday) => holiday.holiday_type === "exception" && holiday.specific_date === dateStr,
+      (holiday) => holiday && holiday.holiday_type === "exception" && holiday.specific_date === dateStr,
     )
 
     // It's a holiday if it's either a specific date holiday or a day of week holiday,
@@ -864,12 +971,21 @@ export function OrdersTable({
     return (isSpecificDateHoliday || isDayOfWeekHoliday) && !isException
   }
 
-  // Update the updateStartDate function to properly account for holidays
+  // Update the updateStartDate function to handle null values:
   const updateStartDate = (endDate: Date, workingDays: number) => {
-    if (!editingTask) return
+    console.log("updateStartDate called with:", { endDate, workingDays })
+    if (!editingTask) {
+      console.log("editingTask is null, cannot update start date")
+      return
+    }
+    if (!endDate) {
+      console.log("endDate is null, cannot update start date")
+      return
+    }
 
     console.log(`Calculating start date for ${workingDays} working days from ${format(endDate, "yyyy-MM-dd")}`)
-    console.log(`Using ${holidays.length} holidays for calculation`)
+    console.log(`Using ${holidays?.length || 0} holidays for calculation`)
+    console.log("Current editingTask:", editingTask)
 
     // We need to find a start date such that:
     // The number of working days between start and end equals the user input
@@ -882,12 +998,15 @@ export function OrdersTable({
       // Check if the end date itself is a holiday
       const holidayCount = isHoliday(endDate, holidays) ? 1 : 0
 
-      setEditingTask({
+      const updatedTask = {
         ...editingTask,
         startDate: formattedStartDate,
         daysToComplete: workingDays,
         numberOfHolidays: holidayCount,
-      })
+      }
+
+      console.log("Setting editingTask with new start date (days=1):", updatedTask)
+      setEditingTask(updatedTask)
 
       return
     }
@@ -916,22 +1035,36 @@ export function OrdersTable({
     const formattedStartDate = format(currentDate, "yyyy-MM-dd")
     console.log(`Calculated start date: ${formattedStartDate} with ${holidayCount} holidays`)
 
-    setEditingTask({
+    const updatedTask = {
       ...editingTask,
       startDate: formattedStartDate,
       daysToComplete: workingDays,
       numberOfHolidays: holidayCount,
-    })
+    }
+
+    console.log("Setting editingTask with new start date:", updatedTask)
+    setEditingTask(updatedTask)
   }
 
   // Update the handleEndDateSelect function to use the improved updateStartDate
   const handleEndDateSelect = (date: Date | undefined) => {
-    if (!date || !editingTask) return
+    console.log("handleEndDateSelect called with date:", date)
+    if (!date) {
+      console.log("Date is null or undefined")
+      return
+    }
+
+    if (!editingTask) {
+      console.log("editingTask is null or undefined")
+      return
+    }
 
     const newEndDate = format(date, "yyyy-MM-dd")
+    console.log("Formatted new end date:", newEndDate)
 
     // Validate that end date is not after due date
     if (isAfter(date, parseISO(editingTask.dueDate))) {
+      console.log("End date is after due date, showing error")
       toast({
         title: "Validation Error",
         description: "End date cannot be later than due date",
@@ -941,13 +1074,17 @@ export function OrdersTable({
     }
 
     // Update the end date
-    setEditingTask({
-      ...editingTask!,
+    console.log("Current editingTask before update:", editingTask)
+    const updatedTask = {
+      ...editingTask,
       endDate: newEndDate,
-    })
+    }
+    console.log("Setting editingTask with new end date:", updatedTask)
+    setEditingTask(updatedTask)
 
     // Recalculate the start date based on the working days
     // This preserves the user's input for working days
+    console.log("Calling updateStartDate with:", { date, daysToComplete })
     updateStartDate(date, daysToComplete)
   }
 
@@ -1023,9 +1160,18 @@ export function OrdersTable({
     }
 
     // Only calculate if no database value exists (for backward compatibility)
-    const startDate = parseISO(task.startDate)
-    const endDate = parseISO(task.endDate)
-    return differenceInDays(endDate, startDate) + 1
+    if (task.startDate && task.endDate) {
+      try {
+        const startDate = parseISO(task.startDate)
+        const endDate = parseISO(task.endDate)
+        return differenceInDays(endDate, startDate) + 1
+      } catch (error) {
+        console.error("Error calculating days to complete:", error)
+        return 1 // Default to 1 day if calculation fails
+      }
+    }
+
+    return 1 // Default to 1 day if dates are missing
   }
 
   const deleteTask = async (id: number) => {
@@ -1073,11 +1219,18 @@ export function OrdersTable({
 
   // Move task to a new date
   const moveTaskToDate = async (task: Task, date: Date) => {
+    if (!task || !date) {
+      console.error("Missing task or date in moveTaskToDate")
+      return
+    }
+
     try {
       console.log("Moving task to date:", format(date, "yyyy-MM-dd"))
 
       // Get the working days from the task (or calculate if not available)
-      const workingDays = task.daysToComplete || differenceInDays(parseISO(task.endDate), parseISO(task.startDate)) + 1
+      const workingDays =
+        task.daysToComplete ||
+        (task.startDate && task.endDate ? differenceInDays(parseISO(task.endDate), parseISO(task.startDate)) + 1 : 1)
 
       // Set new start date to the date where the user dropped the task
       const newStartDate = format(date, "yyyy-MM-dd")
@@ -1110,6 +1263,15 @@ export function OrdersTable({
         toast({
           title: "Validation Error",
           description: durationValidation.message,
+        })
+        return
+      }
+
+      // Check if task has a due date before proceeding
+      if (!task.dueDate) {
+        toast({
+          title: "Validation Error",
+          description: "Task has no due date",
           variant: "destructive",
         })
         return
@@ -1178,79 +1340,48 @@ export function OrdersTable({
               .select("days_to_complete, number_of_holidays")
               .limit(1)
 
-            // If the query succeeds, the columns exist
-            if (!columnCheckError) {
-              console.log("days_to_complete and number_of_holidays columns exist, updating them")
-              updateData.days_to_complete = workingDays // Preserve the original daysToComplete value
-              updateData.number_of_holidays = holidayDates.length // Use length of holiday dates
-            } else {
-              console.log("days_to_complete and number_of_holidays columns don't exist yet, skipping them")
-            }
+            // If the query succeeds
           } catch (columnError) {
             console.log("Error checking for columns, skipping days_to_complete and number_of_holidays")
           }
 
-          // Now update with the appropriate fields
+          // Update task in Supabase
           const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id)
 
           if (error) {
             console.error("Error updating task in database:", error)
             toast({
               title: "Database Error",
-              description: "Failed to save to database, but task was updated locally.",
-              variant: "warning",
+              description: "Failed to update task in database. Please try again.",
+              variant: "destructive",
             })
-            setIsDbConnected(false)
-          } else {
-            // Log the task movement
-            const logDetails = `Task moved from ${format(parseISO(task.startDate), "MMM d, yyyy")} to ${format(date, "MMM d, yyyy")}`
-
-            // Try to save log to Supabase
-            await supabase.from("logs").insert({
-              timestamp: new Date().toISOString(),
-              action_type: "modified",
-              task_id: task.id,
-              order_number: task.orderNumber,
-              order_name: task.orderName,
-              details: logDetails,
-              user_name: "User",
-            })
-
-            // Also save to localStorage for backward compatibility
-            const logEntry = createLogEntry("modified", updatedTask, logDetails)
-            saveLog(logEntry)
+            return
           }
-        } catch (error) {
-          console.error("Error saving to database:", error)
+
+          console.log("Task updated successfully in database")
+
+          // Update tasks in local state
+          setTasks(tasks.map((t) => (t.id === task.id ? updatedTask : t)))
+          lastTasksRef.current = tasks.map((t) => (t.id === task.id ? updatedTask : t)) // Update the ref to prevent unnecessary refreshes
+
+          toast({
+            title: "Success",
+            description: "Task moved successfully",
+          })
+        } catch (dbError) {
+          console.error("Error updating task in database:", dbError)
+          setIsDbConnected(false) // Set database connection status to false
           toast({
             title: "Database Error",
-            description: "Failed to save to database, but task was updated locally.",
-            variant: "warning",
+            description: "Failed to update task in database. Please try again later.",
+            variant: "destructive",
           })
-          setIsDbConnected(false)
         }
       } else {
-        // If database is not connected, just log locally
-        const logEntry = createLogEntry(
-          "modified",
-          updatedTask,
-          `Task moved from ${format(parseISO(task.startDate), "MMM d, yyyy")} to ${format(date, "MMM d, yyyy")} (local only)`,
-        )
-        saveLog(logEntry)
+        console.log("Database not connected, skipping update")
       }
-
-      // Show success message
-      toast({
-        title: "Success",
-        description: `Moved "${task.orderName}" to ${format(date, "MMM d, yyyy")}`,
-      })
-
-      // Reset selection
-      setSelectedTask(null)
-      setSelectedDate(null)
-      setMaxStartDate(null)
     } catch (error) {
-      console.error("Error moving task:", error)
+      console.error("Error moving task to date:", error)
       toast({
         title: "Error",
         description: "Failed to move task. Please try again.",
@@ -1557,7 +1688,7 @@ export function OrdersTable({
                           ref={(el) => (inputRefs.current["daysToComplete"] = el)}
                           type="number"
                           min="1"
-                          value={daysToComplete.toString()}
+                          value={daysToComplete?.toString() || "1"}
                           onChange={(e) => {
                             const inputValue = e.target.value
                             const days = inputValue === "" ? 1 : Math.max(1, Number.parseInt(inputValue) || 1)
@@ -1583,7 +1714,9 @@ export function OrdersTable({
                     <TableCell className="h-[32px] px-2 text-xs text-gray-500">
                       {editingId === task.id
                         ? format(parseISO(editingTask!.startDate), "MM/dd/yy")
-                        : format(parseISO(task.startDate), "MM/dd/yy")}
+                        : task.startDate
+                          ? format(parseISO(task.startDate), "MM/dd/yy")
+                          : "-"}
                     </TableCell>
 
                     {/* End Date */}
@@ -1592,30 +1725,91 @@ export function OrdersTable({
                         <Popover>
                           <PopoverTrigger asChild>
                             <button
+                              type="button"
                               ref={(el) => (inputRefs.current["endDate"] = el as unknown as HTMLInputElement)}
                               className={`w-full h-full text-left bg-transparent border-0 focus:outline-none focus:ring-0 flex items-center px-0 text-xs ${isTaskCompleted(task) ? "cursor-not-allowed opacity-60" : ""}`}
                               onKeyDown={(e) => handleKeyPress(e, "endDate", 6)}
                               disabled={isTaskCompleted(task)}
                             >
                               {format(parseISO(editingTask?.endDate || task.endDate), "MM/dd/yy")}
-                              <CalendarIcon className="ml-1 h-3 w-3 text-gray-500" />
+                              <CalendarIcon className="ml-1 h-3 w-3 text-blue-500" />
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={parseISO(editingTask?.endDate || task.endDate)}
-                                onSelect={(date) => {
-                                  handleEndDateSelect(date)
-                                }}
-                                initialFocus
-                              />
+                            <PopoverContent className="w-auto p-0 z-[9999]" align="start" sideOffset={5}>
+                              <div className="calendar-wrapper">
+                                <Calendar
+                                  mode="single"
+                                  selected={parseISO(editingTask?.endDate || task.endDate)}
+                                  onSelect={(date) => {
+                                    console.log("Date selected:", date)
+                                    if (!date) {
+                                      console.log("Date is null or undefined")
+                                      return
+                                    }
+
+                                    if (!editingTask) {
+                                      console.log("editingTask is null or undefined")
+                                      return
+                                    }
+
+                                    try {
+                                      const newEndDate = format(date, "yyyy-MM-dd")
+                                      console.log("Formatted new end date:", newEndDate)
+
+                                      // Validate that end date is not after due date
+                                      if (isAfter(date, parseISO(editingTask.dueDate))) {
+                                        console.log("End date is after due date, showing error")
+                                        toast({
+                                          title: "Validation Error",
+                                          description: "End date cannot be later than due date",
+                                          variant: "destructive",
+                                        })
+                                        return
+                                      }
+
+                                      // Create a new object for the updated task to ensure React detects the change
+                                      const updatedTask = {
+                                        ...editingTask,
+                                        endDate: newEndDate,
+                                      }
+
+                                      console.log("Setting editingTask with new end date:", updatedTask)
+                                      setEditingTask(updatedTask)
+
+                                      // Recalculate the start date based on the working days
+                                      console.log("Updating start date with days to complete:", daysToComplete)
+                                      updateStartDate(date, daysToComplete)
+
+                                      // Force close the popover after selection with a delay
+                                      console.log("Closing popover")
+                                      setTimeout(() => {
+                                        document.body.click()
+                                      }, 200)
+                                    } catch (error) {
+                                      console.error("Error updating end date:", error)
+                                    }
+                                  }}
+                                  initialFocus
+                                  defaultMonth={parseISO(editingTask?.endDate || task.endDate)}
+                                  classNames={{
+                                    day_selected: "bg-blue-500 text-white hover:bg-blue-600",
+                                    day_today: "text-blue-500 font-bold",
+                                    nav_button: "text-blue-500 hover:bg-blue-100",
+                                    nav_button_previous: "absolute left-1",
+                                    nav_button_next: "absolute right-1",
+                                    caption: "flex justify-center py-2 relative items-center",
+                                    head_cell: "text-gray-500 font-normal text-center",
+                                  }}
+                                />
+                              </div>
                             </PopoverContent>
                           )}
                         </Popover>
-                      ) : (
+                      ) : task.endDate ? (
                         format(parseISO(task.endDate), "MM/dd/yy")
+                      ) : (
+                        "-"
                       )}
                     </TableCell>
 
@@ -1631,42 +1825,59 @@ export function OrdersTable({
                               disabled={isTaskCompleted(task)}
                             >
                               {format(parseISO(editingTask?.dueDate || task.dueDate), "MM/dd/yy")}
-                              <CalendarIcon className="ml-1 h-3 w-3 text-gray-500" />
+                              <CalendarIcon className="ml-1 h-3 w-3 text-blue-500" />
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={parseISO(editingTask?.dueDate || task.dueDate)}
-                                onSelect={(date) => {
-                                  if (!date) return
+                            <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
+                              <div className="calendar-wrapper">
+                                <Calendar
+                                  mode="single"
+                                  selected={parseISO(editingTask?.dueDate || task.dueDate)}
+                                  onSelect={(date) => {
+                                    if (!date || !editingTask) return
 
-                                  const newDueDate = format(date, "yyyy-MM-dd")
+                                    const newDueDate = format(date, "yyyy-MM-dd")
 
-                                  // Validate that due date is not before end date
-                                  if (isBefore(date, parseISO(editingTask?.endDate || task.endDate))) {
-                                    toast({
-                                      title: "Validation Error",
-                                      description: "Due date cannot be before end date",
-                                      variant: "destructive",
+                                    // Validate that due date is not before end date
+                                    if (isBefore(date, parseISO(editingTask.endDate))) {
+                                      toast({
+                                        title: "Validation Error",
+                                        description: "Due date cannot be before end date",
+                                        variant: "destructive",
+                                      })
+                                      return
+                                    }
+
+                                    // Update the editing task
+                                    setEditingTask({
+                                      ...editingTask,
+                                      dueDate: newDueDate,
                                     })
-                                    return
-                                  }
 
-                                  // Update the editing task
-                                  setEditingTask({
-                                    ...editingTask!,
-                                    dueDate: newDueDate,
-                                  })
-                                }}
-                                initialFocus
-                              />
+                                    // Force close the popover after selection
+                                    document.body.click()
+                                  }}
+                                  initialFocus
+                                  defaultMonth={parseISO(editingTask?.dueDate || task.dueDate)}
+                                  classNames={{
+                                    day_selected: "bg-blue-500 text-white hover:bg-blue-600",
+                                    day_today: "text-blue-500 font-bold",
+                                    nav_button: "text-blue-500 hover:bg-blue-100",
+                                    nav_button_previous: "absolute left-1",
+                                    nav_button_next: "absolute right-1",
+                                    caption: "flex justify-center py-2 relative items-center",
+                                    head_cell: "text-gray-500 font-normal text-center",
+                                  }}
+                                />
+                              </div>
                             </PopoverContent>
                           )}
                         </Popover>
-                      ) : (
+                      ) : task.dueDate ? (
                         format(parseISO(task.dueDate), "MM/dd/yy")
+                      ) : (
+                        "-"
                       )}
                     </TableCell>
 
@@ -1681,7 +1892,7 @@ export function OrdersTable({
                               onKeyDown={(e) => handleKeyPress(e, "effort", 8)}
                               disabled={isTaskCompleted(task)}
                             >
-                              {editingTask?.effort}
+                              {editingTask?.effort?.toString() || "0"}
                               <CalendarIcon className="ml-1 h-3 w-3 text-gray-500" />
                             </button>
                           </PopoverTrigger>
@@ -1695,11 +1906,11 @@ export function OrdersTable({
                                       type="button"
                                       size="sm"
                                       variant={editingTask?.effort === option ? "default" : "outline"}
-                                      className="h-7 text-xs"
                                       onClick={() => {
                                         setEditingTask({ ...editingTask!, effort: option })
                                         document.body.click() // Close the popover
                                       }}
+                                      disabled={viewingTask?.status === "Completed"}
                                     >
                                       {option}
                                     </Button>
@@ -1726,11 +1937,13 @@ export function OrdersTable({
                                     }}
                                     className="h-7 text-xs"
                                     placeholder="Custom value"
+                                    disabled={viewingTask?.status === "Completed"}
                                   />
                                   <Button
                                     size="sm"
                                     className="h-7 text-xs"
                                     onClick={() => document.body.click()} // Close the popover
+                                    disabled={viewingTask?.status === "Completed"}
                                   >
                                     Apply
                                   </Button>
@@ -1740,7 +1953,7 @@ export function OrdersTable({
                           )}
                         </Popover>
                       ) : (
-                        task.effort
+                        task.effort?.toString() || "-"
                       )}
                     </TableCell>
 
@@ -1981,7 +2194,7 @@ export function OrdersTable({
                           <input
                             type="number"
                             min="1"
-                            value={daysToComplete.toString()}
+                            value={daysToComplete?.toString() || "1"}
                             onChange={(e) => {
                               const days = Math.max(1, Number.parseInt(e.target.value) || 1)
                               setDaysToComplete(days)
@@ -2019,14 +2232,15 @@ export function OrdersTable({
                               </Button>
                             </PopoverTrigger>
                             {viewingTask?.status !== "Completed" && (
-                              <PopoverContent className="w-auto p-0">
+                              <PopoverContent className="w-auto p-0 z-50">
                                 <Calendar
                                   mode="single"
                                   selected={parseISO(editingTask?.endDate || "")}
                                   onSelect={(date) => {
-                                    handleEndDateSelect(date)
+                                    if (date) handleEndDateSelect(date)
                                   }}
                                   initialFocus
+                                  defaultMonth={parseISO(editingTask?.endDate || "")}
                                 />
                               </PopoverContent>
                             )}
@@ -2047,7 +2261,7 @@ export function OrdersTable({
                               </Button>
                             </PopoverTrigger>
                             {viewingTask?.status !== "Completed" && (
-                              <PopoverContent className="w-auto p-0">
+                              <PopoverContent className="w-auto p-0 z-50">
                                 <Calendar
                                   mode="single"
                                   selected={parseISO(editingTask?.dueDate || "")}
@@ -2073,6 +2287,7 @@ export function OrdersTable({
                                     })
                                   }}
                                   initialFocus
+                                  defaultMonth={parseISO(editingTask?.dueDate || "")}
                                 />
                               </PopoverContent>
                             )}

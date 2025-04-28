@@ -275,31 +275,8 @@ export function Navigation() {
             customer_name: task.customerName,
             phone_number: task.phoneNumber,
             status: task.status,
-          }
-
-          // Try to check if the additional columns exist by querying the table structure
-          try {
-            // First check if the columns exist by making a small query
-            const { data: columnCheckData, error: columnCheckError } = await supabase
-              .from("tasks")
-              .select("days_to_complete, number_of_holidays")
-              .limit(1)
-
-            // If the query succeeds, the columns exist
-            if (!columnCheckError) {
-              console.log("days_to_complete and number_of_holidays columns exist, including them in insert")
-
-              // Add the additional columns to the base data
-              Object.assign(baseTaskData, {
-                days_to_complete: task.daysToComplete,
-                number_of_holidays: holidayDates ? holidayDates.length : 0,
-                holiday_dates: holidayDates,
-              })
-            } else {
-              console.log("days_to_complete and number_of_holidays columns don't exist yet, skipping them")
-            }
-          } catch (columnError) {
-            console.log("Error checking for columns, skipping days_to_complete and number_of_holidays")
+            days_to_complete: task.daysToComplete,
+            holiday_dates: holidayDates,
           }
 
           // Now insert with only the columns that exist

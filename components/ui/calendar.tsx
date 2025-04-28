@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
 
 // Import the react-day-picker styles
 import "react-day-picker/dist/style.css"
@@ -19,30 +18,6 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   React.useEffect(() => {
     setIsMounted(true)
   }, [])
-
-  // Simple styles for a more reliable rendering
-  const simpleClassNames = {
-    months: "flex flex-col space-y-4",
-    month: "space-y-4",
-    caption: "flex justify-between pt-1 relative items-center",
-    caption_label: "text-sm font-medium",
-    nav: "space-x-1 flex items-center",
-    nav_button: cn(buttonVariants({ variant: "outline" }), "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"),
-    nav_button_previous: "mr-auto",
-    nav_button_next: "ml-auto",
-    table: "w-full border-collapse space-y-1",
-    head_row: "flex",
-    head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] text-center",
-    row: "flex w-full mt-2",
-    cell: "text-center text-sm p-0 relative h-9 w-9",
-    day: cn(buttonVariants({ variant: "ghost" }), "h-9 w-9 p-0 font-normal"),
-    day_selected: "bg-primary text-primary-foreground",
-    day_today: "bg-accent text-accent-foreground",
-    day_outside: "text-muted-foreground opacity-50",
-    day_disabled: "text-muted-foreground opacity-50",
-    day_hidden: "invisible",
-    ...classNames,
-  }
 
   // If not mounted yet, show a simple loading state
   if (!isMounted) {
@@ -64,19 +39,146 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   }
 
   return (
-    <DayPicker
-      showOutsideDays={showOutsideDays}
-      className={cn("p-3 bg-white rounded-md shadow-md z-50", className)}
-      classNames={simpleClassNames}
-      components={{
-        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-        IconRight: () => <ChevronRight className="h-4 w-4" />,
-      }}
-      formatters={{
-        formatWeekdayName: safeFormatWeekday,
-      }}
-      {...props}
-    />
+    <div className="rdp-root-override">
+      <style jsx global>{`
+        /* Base calendar styles */
+        .rdp-root-override .rdp {
+          margin: 0;
+        }
+        
+        /* Month styles */
+        .rdp-root-override .rdp-months {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        
+        /* Caption styles */
+        .rdp-root-override .rdp-caption {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 0.25rem;
+          position: relative;
+        }
+        
+        .rdp-root-override .rdp-caption_label {
+          font-size: 0.875rem;
+          font-weight: 500;
+        }
+        
+        /* Navigation styles */
+        .rdp-root-override .rdp-nav {
+          display: flex;
+          gap: 0.25rem;
+        }
+        
+        /* Table styles */
+        .rdp-root-override .rdp-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 0.25rem;
+        }
+        
+        /* Head row styles */
+        .rdp-root-override .rdp-head_row {
+          display: flex;
+        }
+        
+        /* Head cell styles */
+        .rdp-root-override .rdp-head_cell {
+          color: var(--muted-foreground, #6b7280);
+          font-size: 0.75rem;
+          font-weight: 400;
+          text-align: center;
+          width: 2.25rem;
+          padding: 0.25rem 0;
+        }
+        
+        /* Row styles */
+        .rdp-root-override .rdp-row {
+          display: flex;
+          width: 100%;
+          margin-top: 0.5rem;
+        }
+        
+        /* Cell styles */
+        .rdp-root-override .rdp-cell {
+          text-align: center;
+          padding: 0;
+          position: relative;
+          width: 2.25rem;
+          height: 2.25rem;
+        }
+        
+        /* Day styles */
+        .rdp-root-override .rdp-day {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 2.25rem;
+          height: 2.25rem;
+          font-size: 0.875rem;
+          border-radius: 0.375rem;
+          cursor: pointer;
+          border: none;
+          background: transparent;
+        }
+        
+        .rdp-root-override .rdp-day:hover:not([disabled]) {
+          background-color: var(--accent, #f3f4f6);
+          color: var(--accent-foreground, #111827);
+        }
+        
+        .rdp-root-override .rdp-day_selected {
+          background-color: var(--primary, #2563eb);
+          color: var(--primary-foreground, #ffffff);
+        }
+        
+        .rdp-root-override .rdp-day_today {
+          background-color: var(--accent, #f3f4f6);
+          color: var(--accent-foreground, #111827);
+        }
+        
+        .rdp-root-override .rdp-day_outside {
+          opacity: 0.5;
+        }
+        
+        .rdp-root-override .rdp-day_disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .rdp-root-override .rdp-button {
+          border-radius: 0.375rem;
+          height: 2.25rem;
+          width: 2.25rem;
+          padding: 0;
+          background: transparent;
+          opacity: 0.5;
+        }
+        
+        .rdp-root-override .rdp-button:hover {
+          opacity: 1;
+          background-color: var(--accent, #f3f4f6);
+        }
+      `}</style>
+      <DayPicker
+        showOutsideDays={showOutsideDays}
+        className={cn("p-3 bg-white rounded-md shadow-md", className)}
+        classNames={{
+          ...classNames,
+        }}
+        components={{
+          IconLeft: () => <ChevronLeft className="h-4 w-4" />,
+          IconRight: () => <ChevronRight className="h-4 w-4" />,
+        }}
+        formatters={{
+          formatWeekdayName: safeFormatWeekday,
+        }}
+        {...props}
+      />
+    </div>
   )
 }
 

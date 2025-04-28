@@ -3,47 +3,32 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
-
-import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+  // Force client-side rendering
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
-
-    // Add critical styles directly to ensure they're applied in all environments
-    const style = document.createElement("style")
-    style.innerHTML = `
-      .rdp-day { width: 40px; height: 40px; }
-      .rdp-button { cursor: pointer; border: none; background: none; }
-      .rdp-head_cell { width: 40px; text-align: center; font-weight: 500; }
-      .rdp-cell { width: 40px; text-align: center; }
-    `
-    document.head.appendChild(style)
-
-    return () => {
-      document.head.removeChild(style)
-    }
   }, [])
 
-  // Simple day names that don't rely on locale
-  const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
-
-  // If not mounted, show a simple loading placeholder
+  // If not mounted, return a simple placeholder
   if (!mounted) {
-    return <div className="flex items-center justify-center h-[350px]">Loading calendar...</div>
+    return <div className="h-[350px] flex items-center justify-center">Loading calendar...</div>
   }
 
+  // Create a very basic calendar with minimal styling
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{
-        months: "flex flex-col space-y-4",
+        root: "rdp",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-between pt-1 relative items-center",
         caption_label: "text-sm font-medium",
@@ -56,10 +41,10 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         nav_button_next: "ml-auto",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        head_cell: "text-muted-foreground rounded-md w-10 font-normal text-[0.8rem]",
+        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
-        cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
-        day: cn(buttonVariants({ variant: "ghost" }), "h-10 w-10 p-0 font-normal aria-selected:opacity-100"),
+        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        day: cn(buttonVariants({ variant: "ghost" }), "h-9 w-9 p-0 font-normal aria-selected:opacity-100"),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         day_today: "bg-accent text-accent-foreground",
@@ -73,16 +58,23 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,
         IconRight: () => <ChevronRight className="h-4 w-4" />,
       }}
+      // Use a very simple formatter that doesn't rely on complex date operations
       formatters={{
         formatWeekdayName: (date) => {
+          const days = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
           try {
-            return dayNames[date.getDay()]
+            return days[date.getDay()]
           } catch (e) {
             console.error("Error formatting weekday:", e)
             return ""
           }
         },
       }}
+      // Explicitly pass all props to ensure they're properly handled
+      selected={props.selected}
+      onSelect={props.onSelect}
+      defaultMonth={props.defaultMonth}
+      disabled={props.disabled}
       {...props}
     />
   )

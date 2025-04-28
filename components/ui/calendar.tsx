@@ -6,9 +6,6 @@ import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 
-// Import the react-day-picker styles
-import "react-day-picker/dist/style.css"
-
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
@@ -63,11 +60,58 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         row: "rdp-row",
       }}
       components={{
-        IconLeft: () => <ChevronLeft className="h-4 w-4" />,
-        IconRight: () => <ChevronRight className="h-4 w-4" />,
+        IconLeft: () => <ChevronLeft className="h-4 w-4 text-blue-500" />,
+        IconRight: () => <ChevronRight className="h-4 w-4 text-blue-500" />,
       }}
       formatters={{
         formatWeekdayName: safeFormatWeekday,
+      }}
+      styles={{
+        months: { display: "flex" },
+        month: { margin: 0 },
+        caption: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 0 8px 0" },
+        caption_label: { fontWeight: 600, fontSize: "1rem" },
+        nav: { display: "flex", alignItems: "center" },
+        nav_button: {
+          width: "28px",
+          height: "28px",
+          padding: 0,
+          background: "transparent",
+          border: "none",
+          color: "#3b82f6",
+          cursor: "pointer",
+        },
+        table: { margin: 0, borderCollapse: "collapse" },
+        head_row: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", margin: "8px 0" },
+        row: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", margin: "8px 0" },
+        head_cell: {
+          width: "40px",
+          height: "36px",
+          textAlign: "center",
+          padding: 0,
+          margin: 0,
+          fontWeight: 500,
+          fontSize: "0.8rem",
+          color: "hsl(var(--muted-foreground))",
+        },
+        cell: { width: "40px", height: "36px", textAlign: "center", padding: 0, margin: 0 },
+        button: {
+          width: "36px",
+          height: "36px",
+          fontSize: "0.875rem",
+          borderRadius: "50%",
+          margin: "0 auto",
+          padding: 0,
+          background: "none",
+          color: "inherit",
+          fontFamily: "inherit",
+          lineHeight: "inherit",
+          cursor: "pointer",
+        },
+        day_selected: { backgroundColor: "#3b82f6", color: "white" },
+        day_today: { color: "#3b82f6", fontWeight: "bold" },
+        day_outside: { opacity: 0.5 },
+        day_disabled: { opacity: 0.5, cursor: "not-allowed" },
       }}
       {...props}
     />

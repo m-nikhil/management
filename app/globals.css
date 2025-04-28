@@ -92,3 +92,87 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Calendar Styles */
+.rdp-months {
+  display: flex !important;
+  justify-content: center !important;
+}
+
+.rdp-month {
+  margin: 0 !important;
+}
+
+.rdp-table {
+  margin: 0 !important;
+  border-collapse: collapse !important;
+}
+
+.rdp-head_row,
+.rdp-row {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  margin: 8px 0 !important;
+}
+
+.rdp-head_cell,
+.rdp-cell {
+  width: 40px !important;
+  height: 36px !important;
+  text-align: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.rdp-head_cell {
+  font-weight: 500 !important;
+  font-size: 0.8rem !important;
+}
+
+.rdp-button {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 0.875rem !important;
+  border-radius: 9999px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  background: none !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  line-height: inherit !important;
+  cursor: pointer !important;
+}
+
+.rdp-button:hover:not([disabled]) {
+  background-color: #f3f4f6 !important;
+}
+
+.rdp-day_selected {
+  background-color: #2563eb !important;
+  color: white !important;
+}
+
+.rdp-day_selected:hover {
+  background-color: #1d4ed8 !important;
+}
+
+.rdp-day_today {
+  font-weight: bold !important;
+}
+
+.rdp-nav {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.rdp-caption {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 0 8px 0 !important;
+}
+
+.rdp-caption_label {
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+}

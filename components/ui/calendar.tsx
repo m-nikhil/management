@@ -63,7 +63,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3 z-50", className)}
+      className={cn("p-3 bg-white rounded-md shadow-md z-[999] relative", className)}
       classNames={simpleClassNames}
       components={{
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,

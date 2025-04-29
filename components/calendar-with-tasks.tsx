@@ -12,7 +12,6 @@ import {
   Check,
   Eye,
   EyeOff,
-  Search,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,7 +23,6 @@ import { TaskPanel } from "./task-panel"
 import { createLogEntry, saveLog } from "@/utils/history-logger"
 import { supabase } from "@/lib/supabase"
 import type { Holiday } from "@/app/actions/holiday-actions"
-import { Input } from "@/components/ui/input"
 import { getActiveAndFutureHolidays } from "@/app/actions/holiday-actions"
 // Add import for the new component
 import { HolidayCountWarning } from "@/components/holiday-count-warning"
@@ -814,9 +812,34 @@ export function CalendarWithTasks() {
       setSelectedTask(task)
       setSelectedDate(null) // Clear any previously selected date
 
-      // Calculate max start date based on due date
-      const taskDuration = differenceInDays(parseISO(task.endDate), parseISO(task.startDate))
-      const maxDate = subDays(parseISO(task.dueDate), taskDuration) // Use correct offset
+      // In the handleTaskClick function, replace the current maxStartDate calculation:
+      // const taskDuration = differenceInDays(parseISO(task.endDate), parseISO(task.startDate))
+      // const maxDate = subDays(parseISO(task.dueDate), taskDuration) // Use correct offset
+      // setMaxStartDate(format(maxDate, "yyyy-MM-dd"))
+
+      // With this improved version that accounts for holidays:
+      // Calculate max start date based on due date and working days
+      const dueDate = parseISO(task.dueDate)
+      const workingDays = task.daysToComplete || differenceInDays(parseISO(task.endDate), parseISO(task.startDate)) + 1
+
+      // Work backwards from due date, accounting for holidays
+      let maxDate = new Date(dueDate)
+      let remainingWorkingDays = workingDays - 1 // -1 because the start date counts as a working day
+
+      // Count backward until we've found enough working days
+      while (remainingWorkingDays > 0) {
+        // Move one day backward
+        maxDate = subDays(maxDate, 1)
+
+        // Check if this day is a holiday
+        const isHolidayDay = isHoliday(maxDate, holidays)
+
+        // If it's not a holiday, count it as a working day
+        if (!isHolidayDay) {
+          remainingWorkingDays--
+        }
+      }
+
       setMaxStartDate(format(maxDate, "yyyy-MM-dd"))
 
       // Show info message about max start date
@@ -836,7 +859,7 @@ export function CalendarWithTasks() {
   const handleDateClick = (date: Date) => {
     if (!moveMode) return
 
-    console.log("Date clicked:", format(date, "yyyy-MM-dd"))
+    console.log("Date clicked:", format(date, "yyyy-MM-dd"), ")")
 
     if (selectedTask) {
       // Check if the date is after max start date
@@ -1698,29 +1721,6 @@ export function CalendarWithTasks() {
                   <ChevronRight className="h-3.5 w-3.5 -ml-2" />
                 </Button>
               </div>
-            </div>
-            <div className="flex items-center ml-4">
-              <div className="relative w-48">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                <Input
-                  placeholder="Search order ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  className="pl-7 h-7 text-xs"
-                  data-search="true"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSearch}
-                className="ml-1 h-7 text-xs px-2"
-                disabled={!searchQuery.trim()}
-                data-search="true"
-              >
-                Find
-              </Button>
             </div>
           </div>
 

@@ -48,7 +48,7 @@
     "next": "15.2.4",
     "next-themes": "^0.4.4",
     "react": "^19",
-    "react-day-picker": "latest",
+    "react-day-picker": "8.10.1",
     "react-dom": "^19",
     "react-hook-form": "^7.54.1",
     "react-resizable-panels": "^2.1.7",
@@ -60,6 +60,7 @@
     "zod": "^3.24.1",
     "@supabase/supabase-js": "latest",
     "bcryptjs": "latest",
+    "react-datepicker": "latest",
     "xlsx": "latest"
   },
   "devDependencies": {

@@ -604,7 +604,11 @@ export function OrdersTable({
         closeTaskPanel()
 
         // Dispatch an event to notify that tasks have been updated
-        window.dispatchEvent(new CustomEvent("tasks-updated"))
+        // Make sure this event is dispatched AFTER the state is updated
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("tasks-updated"))
+          console.log("Dispatched tasks-updated event after saving task")
+        }, 100)
 
         toast({
           title: "Success",
@@ -877,6 +881,13 @@ export function OrdersTable({
         title: "Success",
         description: "Task updated successfully",
       })
+
+      // Find the saveEditing function and add the event dispatch at the end:
+      // Add this after the toast success message:
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("tasks-updated"))
+        console.log("Dispatched tasks-updated event after inline editing")
+      }, 100)
     } catch (error) {
       console.error("Error saving task:", error)
       toast({
@@ -1045,6 +1056,9 @@ export function OrdersTable({
     // This preserves the user's input for working days
     console.log("Calling updateStartDate with:", { date, daysToComplete })
     updateStartDate(date, daysToComplete)
+
+    // Force close the popover immediately
+    document.body.click()
   }
 
   const downloadToExcel = () => {
@@ -1133,6 +1147,9 @@ export function OrdersTable({
     return 1 // Default to 1 day if dates are missing
   }
 
+  // Find the deleteTask function and update it to dispatch an event after deletion
+  // Around line 1000-1020
+
   const deleteTask = async (id: number) => {
     try {
       // Delete task from Supabase
@@ -1157,6 +1174,12 @@ export function OrdersTable({
         title: "Success",
         description: "Task deleted successfully",
       })
+
+      // Dispatch an event to notify that tasks have been updated/deleted
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("tasks-updated"))
+        console.log("Dispatched tasks-updated event after deleting task")
+      }, 100)
     } catch (error) {
       console.error("Error deleting task:", error)
       toast({
@@ -1733,10 +1756,8 @@ export function OrdersTable({
                                       // Then recalculate the start date based on working days
                                       updateStartDate(date, daysToComplete)
 
-                                      // Close the popover after a short delay to ensure state updates
-                                      setTimeout(() => {
-                                        document.body.click()
-                                      }, 300)
+                                      // Force close the popover immediately
+                                      document.body.click()
                                     } catch (error) {
                                       console.error("Error updating end date:", error)
                                       toast({
@@ -1810,6 +1831,9 @@ export function OrdersTable({
                                       ...editingTask,
                                       dueDate: newDueDate,
                                     })
+
+                                    // Force close the popover immediately
+                                    document.body.click()
                                   }}
                                   initialFocus
                                   defaultMonth={parseISO(editingTask?.dueDate || task.dueDate)}
@@ -2208,7 +2232,6 @@ export function OrdersTable({
                                     onSelect={(date) => {
                                       if (date) {
                                         handleEndDateSelect(date)
-                                        document.body.click() // Force close the popover
                                       }
                                     }}
                                     initialFocus

@@ -1367,7 +1367,16 @@ export function TaskPanel({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-0 w-auto" align="start">
-                    <Calendar mode="single" selected={dueDate} onSelect={handleDueDateSelect} initialFocus />
+                    <Calendar
+                      mode="single"
+                      selected={dueDate}
+                      onSelect={(date) => {
+                        handleDueDateSelect(date)
+                        // Force close the popover immediately
+                        document.body.click()
+                      }}
+                      initialFocus
+                    />
                   </PopoverContent>
                 </Popover>
                 {validationErrors.dueDate && <p className="text-xs text-red-500 mt-1">{validationErrors.dueDate}</p>}
@@ -1398,7 +1407,16 @@ export function TaskPanel({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="p-0 w-auto" align="start">
-                    <Calendar mode="single" selected={endDate} onSelect={handleEndDateSelect} initialFocus />
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(date) => {
+                        handleEndDateSelect(date)
+                        // Force close the popover immediately
+                        document.body.click()
+                      }}
+                      initialFocus
+                    />
                   </PopoverContent>
                 </Popover>
                 {validationErrors.endDate && <p className="text-xs text-red-500 mt-1">{validationErrors.endDate}</p>}

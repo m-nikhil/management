@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { addDays, parseISO, isAfter, isBefore, isEqual } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
+import { taskColors, statusOptions } from "@/lib/constants"
 
 // Update the fetchHolidays function and pass holidays to OrdersTable
 // Add this after the existing imports
@@ -109,6 +110,27 @@ export default function UpcomingTasksPage() {
   useEffect(() => {
     fetchTasks()
     fetchHolidays()
+
+    // Set up event listeners for task updates
+    const handleTaskCreated = () => {
+      console.log("Task created event received in upcoming page, refreshing tasks")
+      fetchTasks()
+    }
+
+    const handleTasksUpdated = () => {
+      console.log("Tasks updated event received in upcoming page, refreshing tasks")
+      fetchTasks()
+    }
+
+    // Add event listeners
+    window.addEventListener("task-created", handleTaskCreated)
+    window.addEventListener("tasks-updated", handleTasksUpdated)
+
+    // Clean up event listeners on unmount
+    return () => {
+      window.removeEventListener("task-created", handleTaskCreated)
+      window.removeEventListener("tasks-updated", handleTasksUpdated)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty dependency array ensures this only runs once on mount
 
@@ -151,7 +173,7 @@ export default function UpcomingTasksPage() {
     try {
       setIsLoading(true)
       setIsRefreshing(true)
-      console.log("Fetching tasks from database...")
+      console.log("Fetching tasks from database in upcoming page...")
       const { data, error } = await supabase.from("tasks").select("*").order("start_date", { ascending: true })
 
       if (error) {
@@ -166,51 +188,52 @@ export default function UpcomingTasksPage() {
         return
       }
 
+      // Clear existing tasks first to ensure deleted tasks are removed
+      setTasks([])
+      setUpcomingStartTasks([])
+      setUpcomingEndTasks([])
+      setUpcomingDueTasks([])
+      setOverdueTasks([])
+
       if (data && data.length > 0) {
-        console.log(`Fetched ${data.length} tasks from database`)
+        console.log(`Fetched ${data.length} tasks from database in upcoming page`)
         // Transform the data to match our Task type
-        const transformedTasks = data.map((task) => ({
+        const transformedTasks = data.map((task: any) => ({
           id: task.id,
-          orderNumber: task.order_number,
-          orderName: task.order_name,
-          startDate: task.start_date,
-          endDate: task.end_date,
-          dueDate: task.due_date,
+          orderNumber: task.order_number || "",
+          orderName: task.order_name || "",
+          startDate: task.start_date || new Date().toISOString().split("T")[0],
+          endDate: task.end_date || new Date().toISOString().split("T")[0],
+          dueDate: task.due_date || new Date().toISOString().split("T")[0],
           notes: task.notes || "",
-          color: task.color,
-          effort: task.effort,
-          row: task.row,
+          color: task.color || taskColors[0],
+          effort: task.effort || 0,
+          row: task.row || 0,
           customerName: task.customer_name || "",
           phoneNumber: task.phone_number || "",
-          status: task.status,
+          status: task.status || statusOptions[0],
           daysToComplete: task.days_to_complete,
           numberOfHolidays: task.number_of_holidays,
-          holidayDates: task.holiday_dates,
+          holidayDates: task.holiday_dates || [],
         }))
 
-        // Only update if tasks have changed
-        if (JSON.stringify(transformedTasks) !== JSON.stringify(prevTasksRef.current)) {
-          prevTasksRef.current = transformedTasks
-          setTasks(transformedTasks)
+        // Always update the tasks state with the new data
+        setTasks(transformedTasks)
 
-          // On initial mount, filter tasks directly
-          if (isInitialMount.current) {
-            filterTasks(transformedTasks)
-            isInitialMount.current = false
-          }
-        }
+        // Force re-filtering of tasks
+        filterTasks(transformedTasks)
+
+        // Update the ref to prevent unnecessary updates
+        prevTasksRef.current = transformedTasks
       } else {
-        setTasks([])
-        setUpcomingStartTasks([])
-        setUpcomingEndTasks([])
-        setUpcomingDueTasks([])
-        setOverdueTasks([])
+        console.log("No tasks found in database in upcoming page")
         prevTasksRef.current = []
       }
+
       setIsLoading(false)
       setIsRefreshing(false)
     } catch (error) {
-      console.error("Error loading tasks from Supabase:", error)
+      console.error("Error loading tasks from Supabase in upcoming page:", error)
       toast({
         title: "Database Error",
         description: "Failed to connect to database.",

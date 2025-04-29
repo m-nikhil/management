@@ -11,6 +11,10 @@ import { parseISO, isBefore } from "date-fns"
 import { getActiveAndFutureHolidays } from "@/app/actions/holiday-actions"
 import type { Holiday } from "@/app/actions/holiday-actions"
 
+// Add this import at the top of the file
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from "lucide-react"
+
 export default function OverdueTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([])
@@ -19,6 +23,9 @@ export default function OverdueTasksPage() {
 
   // Add this state variable with the other state declarations
   const [holidays, setHolidays] = useState<Holiday[]>([])
+
+  // Add a state for tracking refresh status
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Load tasks from Supabase on component mount
   useEffect(() => {
@@ -29,7 +36,8 @@ export default function OverdueTasksPage() {
   const fetchTasks = async () => {
     try {
       setIsLoading(true)
-      console.log("Fetching tasks from database...")
+      setIsRefreshing(true)
+      console.log("Fetching tasks from database in overdue page...")
       const { data, error } = await supabase.from("tasks").select("*").order("due_date", { ascending: true })
 
       if (error) {
@@ -40,48 +48,54 @@ export default function OverdueTasksPage() {
           variant: "destructive",
         })
         setIsLoading(false)
+        setIsRefreshing(false)
         return
       }
 
+      // Clear existing tasks first to ensure deleted tasks are removed
+      setTasks([])
+      setFilteredTasks([])
+
       if (data && data.length > 0) {
-        console.log(`Fetched ${data.length} tasks from database`)
+        console.log(`Fetched ${data.length} tasks from database in overdue page`)
         // Transform the data to match our Task type
         const transformedTasks = data.map((task) => ({
           id: task.id,
-          orderNumber: task.order_number,
-          orderName: task.order_name,
-          startDate: task.start_date,
-          endDate: task.end_date,
-          dueDate: task.due_date,
+          orderNumber: task.order_number || "",
+          orderName: task.order_name || "",
+          startDate: task.start_date || new Date().toISOString().split("T")[0],
+          endDate: task.end_date || new Date().toISOString().split("T")[0],
+          dueDate: task.due_date || new Date().toISOString().split("T")[0],
           notes: task.notes || "",
-          color: task.color,
-          effort: task.effort,
-          row: task.row,
+          color: task.color || "",
+          effort: task.effort || 0,
+          row: task.row || 0,
           customerName: task.customer_name || "",
           phoneNumber: task.phone_number || "",
-          status: task.status,
+          status: task.status || "",
           daysToComplete: task.days_to_complete,
           numberOfHolidays: task.number_of_holidays,
-          holidayDates: task.holiday_dates,
+          holidayDates: task.holiday_dates || [],
         }))
 
+        // Always update the tasks state with the new data
         setTasks(transformedTasks)
 
-        // Filter tasks: non-completed and overdue
+        // Force re-filtering of tasks
         filterOverdueTasks(transformedTasks)
-      } else {
-        setTasks([])
-        setFilteredTasks([])
       }
+
       setIsLoading(false)
+      setIsRefreshing(false)
     } catch (error) {
-      console.error("Error loading tasks from Supabase:", error)
+      console.error("Error loading tasks from Supabase in overdue page:", error)
       toast({
         title: "Database Error",
         description: "Failed to connect to database.",
         variant: "destructive",
       })
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }
 
@@ -137,11 +151,49 @@ export default function OverdueTasksPage() {
     setFilteredTasks(overdue)
   }
 
+  // Add this useEffect after the existing useEffect for fetchTasks and fetchHolidays
+  useEffect(() => {
+    // Set up event listeners for task updates
+    const handleTaskCreated = () => {
+      console.log("Task created event received in overdue page, refreshing tasks")
+      fetchTasks()
+    }
+
+    const handleTasksUpdated = () => {
+      console.log("Tasks updated event received in overdue page, refreshing tasks")
+      fetchTasks()
+    }
+
+    // Add event listeners
+    window.addEventListener("task-created", handleTaskCreated)
+    window.addEventListener("tasks-updated", handleTasksUpdated)
+
+    // Clean up event listeners on unmount
+    return () => {
+      window.removeEventListener("task-created", handleTaskCreated)
+      window.removeEventListener("tasks-updated", handleTasksUpdated)
+    }
+  }, []) // Empty dependency array ensures this only runs once on mount
+
   return (
     <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Overdue Tasks</h1>
-        <p className="text-gray-500">Non-completed tasks that are past their due date</p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Overdue Tasks</h1>
+          <p className="text-gray-500">Non-completed tasks that are past their due date</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            console.log("Refresh button clicked in overdue page")
+            fetchTasks()
+          }}
+          className="flex items-center gap-1"
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
       <div className="h-[calc(100vh-200px)]">

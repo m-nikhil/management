@@ -606,6 +606,7 @@ export default function DueDatesPage() {
 
                       // Then handle the regular date click
                       handleDateClick(day)
+                      document.body.click()
                     }}
                   >
                     <div className={cn("text-right text-sm mb-1 font-medium", isToday && "text-blue-600")}>

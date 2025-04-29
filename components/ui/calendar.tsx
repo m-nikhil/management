@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button"
 // Import the react-datepicker CSS
 import "react-datepicker/dist/react-datepicker.css"
 
+// Update the CalendarProps interface to include a new closePopover prop
 export interface CalendarProps {
   selected?: Date
   onSelect?: (date: Date | null) => void
@@ -19,16 +20,35 @@ export interface CalendarProps {
   maxDate?: Date
   className?: string
   showOutsideDays?: boolean
+  closePopover?: () => void
   [key: string]: any
 }
 
+// Modify the Calendar component to handle closing the popover
 const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
-  ({ selected, onSelect, disabled, minDate, maxDate, className, showOutsideDays = true, ...props }, ref) => {
+  (
+    { selected, onSelect, disabled, minDate, maxDate, className, showOutsideDays = true, closePopover, ...props },
+    ref,
+  ) => {
+    // Create a handler that will both select the date and close the popover
+    const handleSelect = (date: Date | null) => {
+      if (onSelect) {
+        onSelect(date)
+      }
+
+      // Close the popover after selection if closePopover is provided
+      if (closePopover && date) {
+        setTimeout(() => {
+          closePopover()
+        }, 100) // Small delay to ensure the date is selected first
+      }
+    }
+
     return (
       <div ref={ref} className={cn("p-3 relative z-50", className)}>
         <DatePicker
           selected={selected}
-          onChange={onSelect}
+          onChange={handleSelect}
           disabled={disabled}
           minDate={minDate}
           maxDate={maxDate}

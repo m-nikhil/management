@@ -32,6 +32,166 @@ function validateTaskDuration(startDate: string, endDate: string): { valid: bool
   return { valid: true }
 }
 
+// Add this function after the validateTaskDuration function and before the TaskPanelProps interface
+export async function saveTaskToDatabase(task: Task, originalTask: Task | null, supabase: any, isDbConnected = true) {
+  try {
+    console.log("Saving task to database:", task)
+
+    // Calculate holiday dates
+    const taskStart = parseISO(task.startDate)
+    const taskEnd = parseISO(task.endDate)
+
+    // Get holiday dates - we need to pass holidays here
+    const holidayDates = task.holidayDates || []
+
+    // Prepare base update data with columns that definitely exist
+    const updateData: any = {
+      order_number: task.orderNumber,
+      order_name: task.orderName,
+      start_date: task.startDate,
+      end_date: task.endDate,
+      due_date: task.dueDate,
+      notes: task.notes,
+      color: task.color,
+      effort: task.effort,
+      row: task.row,
+      customer_name: task.customerName,
+      phone_number: task.phoneNumber,
+      status: task.status,
+      updated_at: new Date().toISOString(),
+      holiday_dates: holidayDates,
+      // Always include days_to_complete in the update data
+      days_to_complete: task.daysToComplete,
+    }
+
+    // Only try to update database if connected
+    if (isDbConnected && supabase) {
+      // Update task in Supabase with the appropriate fields
+      const { error } = await supabase.from("tasks").update(updateData).eq("id", task.id)
+
+      if (error) {
+        console.error("Error updating task in database:", error)
+        return {
+          success: false,
+          error: "Failed to save to database, but task was updated locally.",
+          task,
+        }
+      }
+
+      // Generate change details for logging if we have an original task
+      if (originalTask) {
+        const changeDetails = generateChangeDetails(originalTask, task)
+
+        // Try to save log to Supabase
+        await supabase.from("logs").insert({
+          timestamp: new Date().toISOString(),
+          action_type: "modified",
+          task_id: task.id,
+          order_number: task.orderNumber,
+          order_name: task.orderName,
+          details: changeDetails,
+          user_name: "User",
+        })
+
+        // Also save to localStorage for backward compatibility
+        const logEntry = createLogEntry("modified", task, changeDetails)
+        saveLog(logEntry)
+      }
+    } else {
+      // If database is not connected, just log locally
+      if (originalTask) {
+        const changeDetails = generateChangeDetails(originalTask, task)
+        const logEntry = createLogEntry("modified", task, changeDetails + " (local only)")
+        saveLog(logEntry)
+      }
+    }
+
+    return {
+      success: true,
+      task,
+    }
+  } catch (error) {
+    console.error("Error saving task:", error)
+    return {
+      success: false,
+      error: "Failed to save task. Please try again.",
+      task,
+    }
+  }
+}
+
+// Add the generateChangeDetails function that was previously in other files
+function generateChangeDetails(original: Task, updated: Task): string {
+  const changes: string[] = []
+
+  if (original.orderNumber !== updated.orderNumber) {
+    changes.push(`Order Number: ${original.orderNumber} → ${updated.orderNumber}`)
+  }
+
+  if (original.orderName !== updated.orderName) {
+    changes.push(`Order Name: ${original.orderName} → ${updated.orderName}`)
+  }
+
+  if (original.customerName !== updated.customerName) {
+    changes.push(`Customer: ${original.customerName || "None"} → ${updated.customerName || "None"}`)
+  }
+
+  if (original.status !== updated.status) {
+    changes.push(`Status: ${original.status} → ${updated.status}`)
+  }
+
+  if (original.effort !== updated.effort) {
+    changes.push(`Effort: ${original.effort} → ${updated.effort}`)
+  }
+
+  if (original.startDate !== updated.startDate) {
+    changes.push(
+      `Start Date: ${format(parseISO(original.startDate), "MMM d, yyyy")} → ${format(parseISO(updated.startDate), "MMM d, yyyy")}`,
+    )
+  }
+
+  if (original.endDate !== updated.endDate) {
+    changes.push(
+      `End Date: ${format(parseISO(original.endDate), "MMM d, yyyy")} → ${format(parseISO(updated.endDate), "MMM d, yyyy")}`,
+    )
+  }
+
+  if (original.dueDate !== updated.dueDate) {
+    changes.push(
+      `Due Date: ${format(parseISO(original.dueDate), "MMM d, yyyy")} → ${format(parseISO(updated.dueDate), "MMM d, yyyy")}`,
+    )
+  }
+
+  if (original.notes !== updated.notes) {
+    if (updated.notes.length > 50) {
+      changes.push(`Notes updated`)
+    } else {
+      changes.push(`Notes: "${original.notes || "None"}" → "${updated.notes || "None"}"`)
+    }
+  }
+
+  return changes.length > 0 ? `Changes: ${changes.join(", ")}` : "No significant changes detected"
+}
+
+// Mock functions for createLogEntry and saveLog
+const createLogEntry = (actionType: string, task: Task, details: string) => {
+  return {
+    timestamp: new Date().toISOString(),
+    action_type: actionType,
+    task_id: task.id,
+    order_number: task.orderNumber,
+    order_name: task.orderName,
+    details: details,
+    user_name: "User",
+  }
+}
+
+const saveLog = (logEntry: any) => {
+  // In a real application, this would save the log to localStorage or a database
+  console.log("Saving log:", logEntry)
+}
+
+// Now update the TaskPanelProps interface to include supabase and isDbConnected
 interface TaskPanelProps {
   task: Task | null
   isOpen: boolean
@@ -41,11 +201,14 @@ interface TaskPanelProps {
   allTasks?: Task[] // Add allTasks prop to access all tasks
   holidays?: Holiday[] // Add holidays prop
   tasksAffectedByNewHolidays?: Set<number>
+  supabase?: any // Add supabase client
+  isDbConnected?: boolean // Add database connection status
 }
 
 // Define effortOptions here
 const effortOptions = [25, 33.33, 50, 75]
 
+// Now update the TaskPanel component to include the new props with default values
 export function TaskPanel({
   task,
   isOpen,
@@ -55,6 +218,8 @@ export function TaskPanel({
   allTasks = [],
   holidays = [],
   tasksAffectedByNewHolidays,
+  supabase = null,
+  isDbConnected = true,
 }: TaskPanelProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [daysToComplete, setDaysToComplete] = useState<number>(1)
@@ -65,7 +230,7 @@ export function TaskPanel({
   const [originalTask, setOriginalTask] = useState<Task | null>(null)
   // Add the numberOfHolidays state variable at the top of the component
   const [numberOfHolidays, setNumberOfHolidays] = useState<number>(0)
-  // Add validation state\
+  // Add validation state
   const [validationErrors, setValidationErrors] = useState<{
     endDate?: string
     dueDate?: string
@@ -281,22 +446,6 @@ export function TaskPanel({
         setDaysToComplete(1)
       }
 
-      // For holidays, use the holidayDates array length if it exists
-      if (task.holidayDates && task.holidayDates.length > 0) {
-        setNumberOfHolidays(task.holidayDates.length)
-      } else if (task.numberOfHolidays !== undefined) {
-        // Fall back to the numberOfHolidays field if it exists
-        setNumberOfHolidays(task.numberOfHolidays)
-      } else if (task.startDate && task.endDate) {
-        // Only calculate if no database value exists
-        const taskStart = parseISO(task.startDate)
-        const taskEnd = parseISO(task.endDate)
-        const holidayCount = countHolidaysBetweenDates(taskStart, taskEnd)
-        setNumberOfHolidays(holidayCount)
-      } else {
-        setNumberOfHolidays(0)
-      }
-
       setDateError(null)
       setValidationErrors({})
 
@@ -320,20 +469,7 @@ export function TaskPanel({
     const taskStart = parseISO(task.startDate)
     const taskEnd = parseISO(task.endDate)
     const actualHolidayCount = countHolidaysBetweenDates(taskStart, taskEnd)
-
-    // Only update state if the calculated count has actually changed
-    if (calculatedHolidayCount !== actualHolidayCount) {
-      setCalculatedHolidayCount(actualHolidayCount)
-
-      // Check if there's a mismatch between stored and calculated holiday count
-      // But only if numberOfHolidays is defined (to avoid unnecessary updates)
-      // const mismatch = task.numberOfHolidays !== undefined && task.numberOfHolidays !== actualHolidayCount
-      const mismatch = task.numberOfHolidays !== undefined && task.numberOfHolidays !== actualHolidayCount
-      if (holidayCountMismatch !== mismatch) {
-        setHolidayCountMismatch(mismatch)
-      }
-    }
-  }, [task, isOpen, countHolidaysBetweenDates, calculatedHolidayCount, holidayCountMismatch])
+  }, [task, isOpen, countHolidaysBetweenDates])
 
   // Add this useEffect to check for outdated holiday dates
   useEffect(() => {
@@ -370,8 +506,7 @@ export function TaskPanel({
       editingTask.customerName !== originalTask.customerName ||
       editingTask.phoneNumber !== originalTask.phoneNumber ||
       editingTask.status !== originalTask.status ||
-      editingTask.daysToComplete !== originalTask.daysToComplete ||
-      editingTask.numberOfHolidays !== originalTask.numberOfHolidays
+      editingTask.daysToComplete !== originalTask.daysToComplete
     )
   }, [editingTask, originalTask])
 
@@ -499,19 +634,14 @@ export function TaskPanel({
           return {
             ...prev,
             startDate: formattedStartDate,
-            numberOfHolidays: holidayCount,
           }
         })
-
-        if (numberOfHolidays !== holidayCount) {
-          setNumberOfHolidays(holidayCount)
-        }
 
         return
       }
 
       let currentDate = endDate
-      let remainingWorkingDays = days
+      let remainingWorkingDays = days - 1
 
       // Count backwards until we've found enough working days
       while (remainingWorkingDays > 0) {
@@ -527,14 +657,8 @@ export function TaskPanel({
         }
       }
 
-      currentDate = addDays(currentDate, 1)
-
       // The currentDate is now our start date
       const formattedStartDate = format(currentDate, "yyyy-MM-dd")
-
-      // Calculate the actual number of holidays between the new dates
-      const totalDays = differenceInDays(endDate, currentDate) + 1
-      const holidayCount = countHolidaysBetweenDates(currentDate, endDate)
 
       setEditingTask((prev) => {
         if (!prev) return null
@@ -549,17 +673,10 @@ export function TaskPanel({
           startDate: formattedStartDate,
           // Keep the original daysToComplete value
           daysToComplete: prev.daysToComplete,
-          // Only update numberOfHolidays if it's a new task or if explicitly requested
-          numberOfHolidays: prev.numberOfHolidays,
         }
       })
-
-      // Only update if the value has changed
-      if (numberOfHolidays !== holidayCount) {
-        setNumberOfHolidays(holidayCount)
-      }
     },
-    [editingTask, isHoliday, numberOfHolidays, countHolidaysBetweenDates],
+    [editingTask, isHoliday],
   )
 
   // Calculate end date based on start date and working days
@@ -682,12 +799,45 @@ export function TaskPanel({
     const finalTask = {
       ...editingTask,
       daysToComplete: daysToComplete,
-      numberOfHolidays: holidayDates.length,
       holidayDates: holidayDates,
     }
 
     try {
-      onSave(finalTask)
+      // If supabase is provided, use the common function to save to database
+      if (supabase) {
+        const result = await saveTaskToDatabase(finalTask, originalTask, supabase, isDbConnected)
+
+        if (!result.success) {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive",
+          })
+        } else {
+          // Always call onSave to update the UI
+          onSave(finalTask)
+
+          // Close the panel after successful save
+          onClose()
+
+          // Dispatch an event to notify that tasks have been updated
+          window.dispatchEvent(new CustomEvent("tasks-updated"))
+
+          toast({
+            title: "Success",
+            description: "Task updated successfully",
+          })
+        }
+      } else {
+        // Always call onSave to update the UI
+        onSave(finalTask)
+
+        // Close the panel after successful save
+        onClose()
+
+        // Dispatch an event to notify that tasks have been updated
+        window.dispatchEvent(new CustomEvent("tasks-updated"))
+      }
     } catch (error) {
       console.error("Error saving task:", error)
       toast({
@@ -735,10 +885,6 @@ export function TaskPanel({
           dueDate: newDueDate,
         }
       })
-
-      // Count holidays between the new start and end dates
-      const holidayCount = countHolidaysBetweenDates(newStartDate, date)
-      setNumberOfHolidays(holidayCount)
     } else {
       setEditingTask({
         ...editingTask,
@@ -773,20 +919,15 @@ export function TaskPanel({
         return {
           ...prev,
           startDate: formattedStartDate,
-          numberOfHolidays: holidayCount,
         }
       })
 
-      setNumberOfHolidays(holidayCount)
       return
     }
 
     // For days > 1, calculate normally
     const newStartDate = calculateStartDate(endDate, days)
     const formattedStartDate = format(newStartDate, "yyyy-MM-dd")
-
-    // Count holidays between the new start and end dates
-    const holidayCount = countHolidaysBetweenDates(newStartDate, endDate)
 
     setEditingTask((prev) => {
       if (!prev) return null
@@ -795,29 +936,23 @@ export function TaskPanel({
         startDate: formattedStartDate,
         // Explicitly update daysToComplete when the user changes it
         daysToComplete: days,
-        // Keep the original numberOfHolidays value
-        numberOfHolidays: prev.numberOfHolidays,
       }
     })
-
-    setNumberOfHolidays(holidayCount)
   }
 
   // Add a function to update the holiday count
   const updateHolidayCount = () => {
     if (!editingTask) return
 
-    const oldCount = editingTask.numberOfHolidays || 0
+    const oldCount = editingTask.holidayDates || 0
     const difference = calculatedHolidayCount - oldCount
     const changeType = difference > 0 ? "increased" : "decreased"
 
     setEditingTask({
       ...editingTask,
-      numberOfHolidays: calculatedHolidayCount,
     })
 
     setHolidayCountMismatch(false)
-    setNumberOfHolidays(calculatedHolidayCount)
 
     toast({
       title: "Holiday Count Updated",
@@ -827,6 +962,7 @@ export function TaskPanel({
 
   // Add a function to update outdated holiday dates
   // Remove the updateOutdatedHolidayDates function since we want users to manually save tasks to update holiday dates
+
   // This function was automatically updating holiday dates which we don't want
 
   // Add this before the return statement in the TaskPanel component
@@ -1282,7 +1418,7 @@ export function TaskPanel({
                     value={daysToComplete === 0 ? "" : daysToComplete}
                     onChange={(e) => {
                       const inputValue = e.target.value
-                      // Ensure days is at least 1
+                      // Allow empty input
                       const days = inputValue === "" ? 0 : Math.max(1, Number.parseInt(inputValue) || 1)
                       handleWorkingDaysChange(days)
                     }}
@@ -1301,7 +1437,7 @@ export function TaskPanel({
                     Holidays
                   </Label>
                   <div className="text-sm border p-1 rounded-md h-8 flex items-center text-xs bg-gray-50">
-                    {editingTask?.numberOfHolidays !== undefined ? editingTask.numberOfHolidays : numHolidays}
+                    {editingTask?.holidayDates ? editingTask.holidayDates.length : 0}
                     {holidayCountMismatch && (
                       <span className="ml-2 text-amber-600 font-medium flex items-center">
                         <AlertCircle className="h-3 w-3 mr-1" />
@@ -1317,9 +1453,7 @@ export function TaskPanel({
                           <span>
                             Count outdated:{" "}
                             <span className="line-through">
-                              {editingTask?.holidayDates
-                                ? editingTask.holidayDates.length
-                                : editingTask?.numberOfHolidays || 0}
+                              {editingTask?.holidayDates ? editingTask.holidayDates.length : 0}
                             </span>{" "}
                             → {calculatedHolidayCount}
                           </span>
@@ -1393,7 +1527,10 @@ export function TaskPanel({
             Cancel
           </Button>
           <Button
-            onClick={handleSave}
+            onClick={() => {
+              handleSave()
+              // Don't close here - let the save process handle it
+            }}
             size="sm"
             variant={isNewTask ? "outline" : "destructive"}
             className={isNewTask ? "bg-green-600 text-white hover:bg-green-700 hover:text-white" : ""}

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Task } from "@/components/calendar-with-tasks"
-import { TaskPanel } from "@/components/task-panel"
+import { TaskPanel, saveTaskToDatabase } from "@/components/task-panel"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { Input } from "@/components/ui/input"
@@ -371,68 +371,42 @@ export default function DueDatesPage() {
     setShowCompletedTasks(true)
   }
 
-  // Save edited task
+  // Update the saveTask function in the DueDatesPage component to use the common function
   const saveTask = useCallback(
     async (updatedTask: Task) => {
       // Calculate holiday dates
       const taskStart = parseISO(updatedTask.startDate)
       const taskEnd = parseISO(updatedTask.endDate)
 
-      // Prepare base update data with columns that definitely exist
-      const updateData: any = {
-        order_number: updatedTask.orderNumber,
-        order_name: updatedTask.orderName,
-        start_date: updatedTask.startDate,
-        end_date: updatedTask.endDate,
-        due_date: updatedTask.dueDate,
-        notes: updatedTask.notes,
-        color: updatedTask.color,
-        effort: updatedTask.effort,
-        row: updatedTask.row,
-        customer_name: updatedTask.customerName,
-        phone_number: updatedTask.phoneNumber,
-        status: updatedTask.status,
-        updated_at: new Date().toISOString(),
-        holiday_dates: updatedTask.holidayDates,
-        // Always include days_to_complete in the update data
-        days_to_complete: updatedTask.daysToComplete,
-      }
+      // Find the original task for comparison
+      const originalTask = tasks.find((t) => t.id === updatedTask.id)
 
-      // Update task in Supabase with the appropriate fields
-      const { error } = await supabase.from("tasks").update(updateData).eq("id", updatedTask.id)
+      try {
+        // Use the common function to save to database
+        const result = await saveTaskToDatabase(updatedTask, originalTask || null, supabase, true)
 
-      if (error) {
-        console.error("Error updating task in database:", error)
+        if (!result.success) {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive",
+          })
+        } else {
+          // Update tasks in state
+          setTasks(tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
+          setIsPanelOpen(false)
+          setSelectedTask(null)
+        }
+      } catch (error) {
+        console.error("Error saving task:", error)
         toast({
-          title: "Database Error",
-          description: "Failed to save to database, but task was updated locally.",
-          variant: "warning",
+          title: "Error",
+          description: "Failed to save task. Please try again.",
+          variant: "destructive",
         })
-      } else {
-        // Generate change details for logging
-        const changeDetails = generateChangeDetails(originalTask, updatedTask)
-
-        // Try to save log to Supabase
-        await supabase.from("logs").insert({
-          timestamp: new Date().toISOString(),
-          action_type: "modified",
-          task_id: updatedTask.id,
-          order_number: updatedTask.orderNumber,
-          order_name: updatedTask.orderName,
-          details: changeDetails,
-          user_name: "User",
-        })
-
-        // Also save to localStorage for backward compatibility
-        const logEntry = createLogEntry("modified", updatedTask, changeDetails)
-        saveLog(logEntry)
       }
-
-      setTasks(tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
-      setIsPanelOpen(false)
-      setSelectedTask(null)
     },
-    [tasks],
+    [tasks, toast],
   )
 
   // Get status color class
@@ -787,6 +761,8 @@ export default function DueDatesPage() {
               onSave={saveTask}
               allTasks={tasks} // Pass all tasks to the panel
               holidays={holidays} // Pass holidays to the panel
+              supabase={supabase} // Pass supabase client
+              isDbConnected={true} // Assume database is connected
             />
           </div>
         )}

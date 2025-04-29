@@ -19,7 +19,8 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { TaskPanel } from "./task-panel"
+// Update the imports to include the common saveTaskToDatabase function
+import { TaskPanel, saveTaskToDatabase } from "./task-panel"
 import { createLogEntry, saveLog } from "@/utils/history-logger"
 import { supabase } from "@/lib/supabase"
 import type { Holiday } from "@/app/actions/holiday-actions"
@@ -820,7 +821,7 @@ export function CalendarWithTasks() {
       // With this improved version that accounts for holidays:
       // Calculate max start date based on due date and working days
       const dueDate = parseISO(task.dueDate)
-      const workingDays = task.daysToComplete || differenceInDays(parseISO(task.endDate), parseISO(task.startDate)) + 1
+      const workingDays = task.daysToComplete
 
       // Work backwards from due date, accounting for holidays
       let maxDate = new Date(dueDate)
@@ -1082,6 +1083,7 @@ export function CalendarWithTasks() {
   }
 
   // Save edited task
+  // Update the saveTask function to use the common function
   const saveTask = async (updatedTask: Task) => {
     try {
       console.log("Saving task to database:", updatedTask)
@@ -1098,87 +1100,31 @@ export function CalendarWithTasks() {
         return
       }
 
-      // Update tasks in local state first for immediate UI update
-      setTasks(tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
+      // Calculate holiday dates
+      const taskStart = parseISO(updatedTask.startDate)
+      const taskEnd = parseISO(updatedTask.endDate)
+      const holidayDates = getHolidayDatesInRange(taskStart, taskEnd, holidays)
 
-      // Also modify the saveTask function to include holiday_dates
-      // Find this section in the saveTask function where updateData is defined:
-
-      // Only try to update database if connected
-      if (isDbConnected) {
-        try {
-          // Calculate holiday dates
-          const taskStart = parseISO(updatedTask.startDate)
-          const taskEnd = parseISO(updatedTask.endDate)
-          const holidayDates = getHolidayDatesInRange(taskStart, taskEnd, holidays)
-          console.log("Holiday dates for saved task:", holidayDates)
-
-          // Prepare base update data with columns that definitely exist
-          const updateData: any = {
-            order_number: updatedTask.orderNumber,
-            order_name: updatedTask.orderName,
-            start_date: updatedTask.startDate,
-            end_date: updatedTask.endDate,
-            due_date: updatedTask.dueDate,
-            notes: updatedTask.notes,
-            color: updatedTask.color,
-            effort: updatedTask.effort,
-            row: updatedTask.row,
-            customer_name: updatedTask.customerName,
-            phone_number: updatedTask.phoneNumber,
-            status: updatedTask.status,
-            updated_at: new Date().toISOString(),
-            holiday_dates: holidayDates,
-            // Always include days_to_complete in the update data
-            days_to_complete: updatedTask.daysToComplete,
-          }
-
-          // Update task in Supabase with the appropriate fields
-          const { error } = await supabase.from("tasks").update(updateData).eq("id", updatedTask.id)
-
-          if (error) {
-            console.error("Error updating task in database:", error)
-            toast({
-              title: "Database Error",
-              description: "Failed to save to database, but task was updated locally.",
-              variant: "warning",
-            })
-            setIsDbConnected(false)
-          } else {
-            // Generate change details for logging
-            const changeDetails = generateChangeDetails(originalTask, updatedTask)
-
-            // Try to save log to Supabase
-            await supabase.from("logs").insert({
-              timestamp: new Date().toISOString(),
-              action_type: "modified",
-              task_id: updatedTask.id,
-              order_number: updatedTask.orderNumber,
-              order_name: updatedTask.orderName,
-              details: changeDetails,
-              user_name: "User",
-            })
-
-            // Also save to localStorage for backward compatibility
-            const logEntry = createLogEntry("modified", updatedTask, changeDetails)
-            saveLog(logEntry)
-          }
-        } catch (error) {
-          console.error("Error saving to database:", error)
-          toast({
-            title: "Database Error",
-            description: "Failed to save to database, but task was updated locally.",
-            variant: "warning",
-          })
-          setIsDbConnected(false)
-        }
-      } else {
-        // If database is not connected, just log locally
-        const changeDetails = generateChangeDetails(originalTask, updatedTask)
-        const logEntry = createLogEntry("modified", updatedTask, changeDetails + " (local only)")
-        saveLog(logEntry)
+      // Update the task with holiday dates
+      const finalTask = {
+        ...updatedTask,
+        holidayDates: holidayDates,
+        numberOfHolidays: holidayDates.length,
       }
 
+      // Use the common function to save to database
+      const result = await saveTaskToDatabase(finalTask, originalTask, supabase, isDbConnected)
+
+      if (!result.success) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "warning",
+        })
+      }
+
+      // Update tasks in local state
+      setTasks(tasks.map((task) => (task.id === updatedTask.id ? finalTask : task)))
       setIsPanelOpen(false)
       setEditingTask(null)
 
@@ -2166,6 +2112,7 @@ export function CalendarWithTasks() {
               onUpdate={() => recalculateHolidayCount(editingTask?.id || -1)}
             />
           )}
+          {/* Update the TaskPanel component to pass supabase */}
           <TaskPanel
             task={editingTask}
             isOpen={isPanelOpen}
@@ -2177,6 +2124,8 @@ export function CalendarWithTasks() {
             allTasks={tasks} // Pass all tasks to the panel
             holidays={holidays} // Pass holidays to the panel
             tasksAffectedByNewHolidays={tasksAffectedByNewHolidays} // Add this line
+            supabase={supabase}
+            isDbConnected={isDbConnected}
           />
         </div>
       </div>

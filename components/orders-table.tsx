@@ -27,6 +27,9 @@ import * as XLSX from "xlsx"
 // Add the Holiday type import at the top of the file:
 import type { Holiday } from "@/app/actions/holiday-actions"
 
+// Add the TaskPanel import near the top of the file with the other imports:
+import { TaskPanel } from "@/components/task-panel"
+
 // Update the interface to include the new prop
 interface OrdersTableProps {
   tasks: Task[]
@@ -150,6 +153,9 @@ export function OrdersTable({
   const [isCustomEffort, setIsCustomEffort] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [hideCompleted, setHideCompleted] = useState(false)
+
+  // Add a new state variable for the panel after the other state declarations (around line 100):
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
 
   // Add a ref to track if the component is mounted
   const isMounted = useRef(true)
@@ -419,13 +425,13 @@ export function OrdersTable({
     setIsCustomEffort(false)
   }
 
-  // Update the viewTaskDetails function to initialize editing state
+  // Update the viewTaskDetails function to use side panel instead of modal
   const viewTaskDetails = (task: Task) => {
-    setViewingTask(task)
+    setSelectedTask(task)
     setEditingTask({ ...task }) // Initialize editingTask with the current task
     setOriginalTask({ ...task }) // Store original task for comparison
-    setIsEditingInModal(false) // Start in view mode, not edit mode
-    setIsCustomEffort(!effortOptions.includes(task.effort))
+    setIsPanelOpen(true) // Open the side panel instead of modal
+    setIsEditingInModal(false) // Keep this for compatibility
 
     // Calculate days to complete for the task
     const taskStart = parseISO(task.startDate)
@@ -434,9 +440,12 @@ export function OrdersTable({
     setDaysToComplete(days)
   }
 
-  // Update the toggleEditInModal function in the modal view
-  const toggleEditInModal = () => {
-    setIsEditingInModal(!isEditingInModal)
+  // Add a function to close the task panel
+  const closeTaskPanel = () => {
+    setSelectedTask(null)
+    setIsPanelOpen(false)
+    setOriginalTask(null)
+    setIsCustomEffort(false)
   }
 
   // Generate change details for logging
@@ -1000,6 +1009,7 @@ export function OrdersTable({
 
       const updatedTask = {
         ...editingTask,
+        endDate: format(endDate, "yyyy-MM-dd"),
         startDate: formattedStartDate,
         daysToComplete: workingDays,
         numberOfHolidays: holidayCount,
@@ -1391,7 +1401,7 @@ export function OrdersTable({
   }
 
   return (
-    <div className="bg-white rounded-md shadow h-full flex flex-col">
+    <div className="bg-white rounded-md shadow h-full flex flex-col relative">
       <div className="p-3 border-b">
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center gap-4">
@@ -1736,8 +1746,8 @@ export function OrdersTable({
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-0 z-[9999]" align="start" sideOffset={5}>
-                              <div className="calendar-wrapper">
+                            <PopoverContent className="w-auto p-0 z-[9999]" side="bottom" align="start" sideOffset={5}>
+                              <div className="bg-white rounded-md shadow-lg border border-gray-200">
                                 <Calendar
                                   mode="single"
                                   selected={parseISO(editingTask?.endDate || task.endDate)}
@@ -1829,8 +1839,8 @@ export function OrdersTable({
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
-                              <div className="calendar-wrapper">
+                            <PopoverContent className="w-auto p-0 z-[9999]" side="bottom" align="start" sideOffset={5}>
+                              <div className="bg-white rounded-md shadow-lg border border-gray-200">
                                 <Calendar
                                   mode="single"
                                   selected={parseISO(editingTask?.dueDate || task.dueDate)}
@@ -1854,9 +1864,6 @@ export function OrdersTable({
                                       ...editingTask,
                                       dueDate: newDueDate,
                                     })
-
-                                    // Force close the popover after selection
-                                    document.body.click()
                                   }}
                                   initialFocus
                                   defaultMonth={parseISO(editingTask?.dueDate || task.dueDate)}
@@ -1897,7 +1904,7 @@ export function OrdersTable({
                             </button>
                           </PopoverTrigger>
                           {!isTaskCompleted(task) && (
-                            <PopoverContent className="w-auto p-2">
+                            <PopoverContent className="w-auto p-4 z-[9999]" side="bottom" align="start" sideOffset={5}>
                               <div className="flex flex-col gap-2">
                                 <div className="flex flex-wrap gap-1">
                                   {effortOptions.map((option) => (
@@ -2126,63 +2133,73 @@ export function OrdersTable({
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-900">Effort</label>
                     {isEditingInModal ? (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-wrap gap-1">
-                          {effortOptions.map((option) => (
-                            <Button
-                              key={option}
-                              type="button"
-                              size="sm"
-                              variant={editingTask?.effort === option ? "default" : "outline"}
-                              onClick={() => {
-                                setEditingTask({ ...editingTask!, effort: option })
-                              }}
-                              disabled={viewingTask?.status === "Completed"}
-                            >
-                              {option}
-                            </Button>
-                          ))}
-                        </div>
-                        {isCustomEffort ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={editingTask?.effort !== undefined ? editingTask.effort : ""}
-                              onChange={(e) => {
-                                const value = Number.parseFloat(e.target.value)
-                                if (!isNaN(value)) {
-                                  setEditingTask({ ...editingTask!, effort: value })
-                                } else {
-                                  setEditingTask({ ...editingTask!, effort: "" })
-                                }
-                              }}
-                              className="h-9"
-                              placeholder="Custom value"
-                              disabled={viewingTask?.status === "Completed"}
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => setIsCustomEffort(false)}
-                              disabled={viewingTask?.status === "Completed"}
-                            >
-                              Use Preset
-                            </Button>
-                          </div>
-                        ) : (
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <Button
-                            size="sm"
                             variant="outline"
-                            onClick={() => setIsCustomEffort(true)}
+                            className="w-full justify-start text-left font-normal"
                             disabled={viewingTask?.status === "Completed"}
                           >
-                            Custom Value
+                            <span>{editingTask?.effort !== undefined ? editingTask.effort : "Select effort"}</span>
+                            <span className="ml-auto opacity-70">%</span>
                           </Button>
-                        )}
-                      </div>
+                        </PopoverTrigger>
+
+                        <PopoverContent className="w-auto p-4 z-[9999]" side="bottom" align="start" sideOffset={5}>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex flex-wrap gap-1">
+                              {effortOptions.map((option) => (
+                                <Button
+                                  key={option}
+                                  type="button"
+                                  size="sm"
+                                  variant={editingTask?.effort === option ? "default" : "outline"}
+                                  onClick={() => {
+                                    setEditingTask({ ...editingTask!, effort: option })
+                                    // Close popover after selection
+                                    document.body.click()
+                                  }}
+                                  disabled={viewingTask?.status === "Completed"}
+                                >
+                                  {option}
+                                </Button>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={
+                                  !effortOptions.includes(editingTask?.effort || 0) && editingTask?.effort !== undefined
+                                    ? editingTask.effort
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  const value = Number.parseFloat(e.target.value)
+                                  if (!isNaN(value)) {
+                                    setEditingTask({ ...editingTask!, effort: value })
+                                  } else {
+                                    setEditingTask({ ...editingTask!, effort: "" })
+                                  }
+                                }}
+                                className="h-9"
+                                placeholder="Custom value"
+                                disabled={viewingTask?.status === "Completed"}
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => document.body.click()}
+                                disabled={viewingTask?.status === "Completed"}
+                              >
+                                Apply
+                              </Button>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : (
-                      <p className="text-gray-500">{viewingTask.effort}</p>
+                      <p className="text-gray-500">{viewingTask.effort}%</p>
                     )}
                   </div>
                   <div className="col-span-2">
@@ -2224,7 +2241,6 @@ export function OrdersTable({
                               <Button
                                 variant="outline"
                                 className="w-full justify-start text-left font-normal"
-                                onClick={(e) => e.preventDefault()}
                                 disabled={viewingTask?.status === "Completed"}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -2232,17 +2248,22 @@ export function OrdersTable({
                               </Button>
                             </PopoverTrigger>
                             {viewingTask?.status !== "Completed" && (
-                              <PopoverContent className="w-auto p-0 z-50">
-                                <Calendar
-                                  mode="single"
-                                  selected={parseISO(editingTask?.endDate || "")}
-                                  onSelect={(date) => {
-                                    if (date) handleEndDateSelect(date)
-                                  }}
-                                  initialFocus
-                                  defaultMonth={parseISO(editingTask?.endDate || "")}
-                                />
-                              </PopoverContent>
+                              <div className="absolute z-[9999]">
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={parseISO(editingTask?.endDate || "")}
+                                    onSelect={(date) => {
+                                      if (date) {
+                                        handleEndDateSelect(date)
+                                        document.body.click() // Force close the popover
+                                      }
+                                    }}
+                                    initialFocus
+                                    defaultMonth={parseISO(editingTask?.endDate || "")}
+                                  />
+                                </PopoverContent>
+                              </div>
                             )}
                           </Popover>
                         </div>
@@ -2253,7 +2274,6 @@ export function OrdersTable({
                               <Button
                                 variant="outline"
                                 className="w-full justify-start text-left font-normal border-red-300"
-                                onClick={(e) => e.preventDefault()}
                                 disabled={viewingTask?.status === "Completed"}
                               >
                                 <CalendarIcon className="mr-2 h-4 w-4 text-red-500" />
@@ -2261,35 +2281,40 @@ export function OrdersTable({
                               </Button>
                             </PopoverTrigger>
                             {viewingTask?.status !== "Completed" && (
-                              <PopoverContent className="w-auto p-0 z-50">
-                                <Calendar
-                                  mode="single"
-                                  selected={parseISO(editingTask?.dueDate || "")}
-                                  onSelect={(date) => {
-                                    if (!date || !editingTask) return
+                              <div className="absolute z-[9999]">
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={parseISO(editingTask?.dueDate || "")}
+                                    onSelect={(date) => {
+                                      if (!date || !editingTask) return
 
-                                    const newDueDate = format(date, "yyyy-MM-dd")
+                                      const newDueDate = format(date, "yyyy-MM-dd")
 
-                                    // Validate that due date is not before end date
-                                    if (isBefore(date, parseISO(editingTask.endDate))) {
-                                      toast({
-                                        title: "Validation Error",
-                                        description: "Due date cannot be before end date",
-                                        variant: "destructive",
+                                      // Validate that due date is not before end date
+                                      if (isBefore(date, parseISO(editingTask.endDate))) {
+                                        toast({
+                                          title: "Validation Error",
+                                          description: "Due date cannot be before end date",
+                                          variant: "destructive",
+                                        })
+                                        return
+                                      }
+
+                                      // Update the editing task
+                                      setEditingTask({
+                                        ...editingTask,
+                                        dueDate: newDueDate,
                                       })
-                                      return
-                                    }
 
-                                    // Update the editing task
-                                    setEditingTask({
-                                      ...editingTask,
-                                      dueDate: newDueDate,
-                                    })
-                                  }}
-                                  initialFocus
-                                  defaultMonth={parseISO(editingTask?.dueDate || "")}
-                                />
-                              </PopoverContent>
+                                      // Force close the popover
+                                      document.body.click()
+                                    }}
+                                    initialFocus
+                                    defaultMonth={parseISO(editingTask?.dueDate || "")}
+                                  />
+                                </PopoverContent>
+                              </div>
                             )}
                           </Popover>
                         </div>
@@ -2340,15 +2365,26 @@ export function OrdersTable({
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={closeTaskDetails}>
-                      Close
-                    </Button>
-                    <Button onClick={toggleEditInModal}>Edit</Button>
+                    <Button onClick={closeTaskDetails}>Close</Button>
                   </>
                 )}
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Task Panel */}
+      {isPanelOpen && selectedTask && (
+        <div className="fixed right-0 top-0 h-full w-[350px] bg-white shadow-lg z-50 overflow-y-auto">
+          <TaskPanel
+            task={selectedTask}
+            isOpen={isPanelOpen}
+            onClose={closeTaskPanel}
+            onSave={saveModalChanges}
+            allTasks={tasks}
+            holidays={holidays || []}
+          />
         </div>
       )}
     </div>

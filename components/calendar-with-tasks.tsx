@@ -401,7 +401,9 @@ export function CalendarWithTasks() {
           // Add all dates between start and end to the set
           const currentDate = new Date(taskStart)
           while (currentDate <= taskEnd) {
-            dates.add(format(currentDate, "yyyy-MM-dd"))
+            if(isHoliday(currentDate, holidays)) {
+             dates.add(format(currentDate, "yyyy-MM-dd"))
+            }
             currentDate.setDate(currentDate.getDate() + 1)
           }
         }

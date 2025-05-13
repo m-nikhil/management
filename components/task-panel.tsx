@@ -1156,68 +1156,6 @@ export function TaskPanel({
         <div className="p-3 overflow-y-auto">
           {/* Render holiday warnings at the */}
           {renderHolidayWarnings()}
-          {tasksAffectedByNewHolidays && tasksAffectedByNewHolidays.has(editingTask?.id || -1) && (
-            <div className="bg-red-50 border border-red-300 rounded-md p-3 mb-4">
-              <div className="flex items-center text-red-700 font-medium mb-2">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                New Holiday Conflict Detected
-              </div>
-              <p className="text-sm text-red-600 mb-2">
-                New holidays have been added that affect this task. Please review the task dates.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-red-50 border-red-300 text-red-700 hover:bg-red-100"
-                onClick={() => {
-                  if (!editingTask || !editingTask.endDate) return
-
-                  // Keep the end date the same
-                  const endDate = parseISO(editingTask.endDate)
-
-                  // Calculate a new start date based on working days and holidays
-                  let currentDate = endDate
-                  let workingDaysFound = 1 // End date counts as 1 working day
-
-                  // Count backwards until we've found enough working days
-                  while (workingDaysFound < daysToComplete) {
-                    // Move one day back
-                    currentDate = addDays(currentDate, -1)
-
-                    // If this day is not a holiday, count it as a working day
-                    if (!isHoliday(currentDate)) {
-                      workingDaysFound++
-                    }
-                  }
-
-                  // The currentDate is now our new start date
-                  const formattedStartDate = format(currentDate, "yyyy-MM-dd")
-
-                  // Update the task with the new start date
-                  const updatedTask = {
-                    ...editingTask,
-                    startDate: formattedStartDate,
-                    // Recalculate holiday dates for the updated date range
-                    holidayDates: getHolidayDatesInRange(currentDate, endDate),
-                  }
-
-                  // Update the UI state
-                  setEditingTask(updatedTask)
-
-                  // Save directly to avoid any state timing issues
-                  onSave(updatedTask)
-
-                  // Show success toast
-                  toast({
-                    title: "Task Updated",
-                    description: `Start date recalculated to account for new holidays.`,
-                  })
-                }}
-              >
-                Auto-Fix & Save
-              </Button>
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-x-3 gap-y-2">
             <div className="space-y-1">

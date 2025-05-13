@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
 // Create a singleton supabase client
-let supabase: ReturnType<typeof createClient> | null = null
+let _supabase: ReturnType<typeof createClient> | null = null
 
 try {
   // Check if we're in a browser environment
@@ -11,7 +11,7 @@ try {
 
     // Only initialize if both URL and key are available
     if (supabaseUrl && supabaseAnonKey) {
-      supabase = createClient(supabaseUrl, supabaseAnonKey)
+      _supabase = createClient(supabaseUrl, supabaseAnonKey)
       console.log("Supabase client initialized successfully")
     } else {
       console.error("Missing Supabase environment variables")
@@ -21,7 +21,10 @@ try {
   }
 } catch (error) {
   console.error("Error initializing Supabase client:", error)
-  supabase = null
+  _supabase = null
 }
 
-export { supabase }
+import { getSupabaseClient } from "./supabase-client"
+
+// Re-export for backward compatibility
+export const supabase = getSupabaseClient()

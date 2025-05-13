@@ -5,13 +5,12 @@ import type React from "react"
 import { format, parseISO, isAfter, differenceInDays, addDays, isBefore } from "date-fns"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, Search, Eye, Pencil, Trash2, EyeOff, AlertCircle } from "lucide-react"
+import { CalendarIcon, Search, Eye, Pencil, Trash2, EyeOff } from "lucide-react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Add this import at the top of the file if it's using effortOptions
 import { statusOptions } from "./calendar-with-tasks"
@@ -76,58 +75,7 @@ function isTaskCompleted(task: Task): boolean {
   return task.status === "Completed"
 }
 
-// Add a function to calculate working days between two dates
-const calculateWorkingDays = (startDate: Date, endDate: Date): { workingDays: number; holidayCount: number } => {
-  const totalDays = differenceInDays(endDate, startDate) + 1
-  let holidayCount = 0
 
-  for (let i = 0; i < totalDays; i++) {
-    const currentDate = addDays(startDate, i)
-    // Simple holiday check (weekends) - in a real implementation, use the isHoliday function
-    const dayOfWeek = currentDate.getDay()
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      // 0 = Sunday, 6 = Saturday
-      holidayCount++
-    }
-  }
-
-  return {
-    workingDays: totalDays - holidayCount,
-    holidayCount,
-  }
-}
-
-// Add holiday count mismatch warning to table cells
-// Locate the Status cell in the table and add an error indicator
-
-// Add this function to check if a task has a holiday count mismatch
-const hasHolidayCountMismatch = (task: Task) => {
-  if (task.numberOfHolidays === undefined || !task.startDate || !task.endDate) return false
-
-  try {
-    const startDate = parseISO(task.startDate)
-    const endDate = parseISO(task.endDate)
-
-    // Count holidays between dates using a simplified version
-    let holidayCount = 0
-    const totalDays = differenceInDays(endDate, startDate) + 1
-
-    // This is a simplified approach - in production code, we would use the same isHoliday function
-    for (let i = 0; i < totalDays; i++) {
-      const currentDate = addDays(startDate, i)
-      const dayOfWeek = currentDate.getDay()
-      // Consider weekends as holidays for this example - adjust based on your holiday logic
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        holidayCount++
-      }
-    }
-
-    return task.numberOfHolidays !== holidayCount
-  } catch (error) {
-    console.error("Error in hasHolidayCountMismatch:", error)
-    return false
-  }
-}
 
 // Update the function signature to include the new prop with a default value
 export function OrdersTable({
@@ -625,46 +573,6 @@ export function OrdersTable({
     }
   }
 
-  // Add a function to check for holiday warnings
-  const checkHolidayWarnings = (task: Task): string[] => {
-    const warnings: string[] = []
-
-    // Fetch holidays from the database
-    // Since we can't do this asynchronously in this context, we'll use a simplified approach
-    // In a real implementation, you might want to fetch holidays when the component mounts
-
-    try {
-      // Check if start date is a holiday
-      const startDate = parseISO(task.startDate)
-      const startDay = startDate.getDay() // 0 = Sunday, 6 = Saturday
-
-      // Check for weekends as a simple example
-      if (startDay === 0 || startDay === 6) {
-        warnings.push(`Start date (${format(startDate, "MMM d")}) falls on a weekend`)
-      }
-
-      // Check if end date is a holiday
-      const endDate = parseISO(task.endDate)
-      const endDay = endDate.getDay()
-
-      if (endDay === 0 || endDay === 6) {
-        warnings.push(`End date (${format(endDate, "MMM d")}) falls on a weekend`)
-      }
-
-      // Check if due date is a holiday
-      const dueDate = parseISO(task.dueDate)
-      const dueDay = dueDate.getDay()
-
-      if (dueDay === 0 || dueDay === 6) {
-        warnings.push(`Due date (${format(dueDate, "MMM d")}) falls on a weekend`)
-      }
-
-      return warnings
-    } catch (error) {
-      console.error("Error checking for holiday warnings:", error)
-      return []
-    }
-  }
 
   // Add a function to cancel editing in the modal
   const cancelModalEditing = () => {
@@ -737,18 +645,6 @@ export function OrdersTable({
         description: durationValidation.message,
       })
       return
-    }
-
-    // Check for holiday warnings
-    const holidayWarnings = checkHolidayWarnings(editingTask)
-    if (holidayWarnings.length > 0) {
-      // Show confirmation dialog
-      const warningMessage = `This task has the following holiday warnings:\n\n${holidayWarnings.join("\n")}\n\nDo you want to save anyway?`
-
-      if (!confirm(warningMessage)) {
-        // User canceled, don't save
-        return
-      }
     }
 
     try {
@@ -908,7 +804,6 @@ export function OrdersTable({
   const isHoliday = (date: Date, holidays: Holiday[]): boolean => {
     if (!date) return false
 
-    // First check if it's a weekend (0 = Sunday, 6 = Saturday)
     const dayOfWeek = date.getDay()
 
     if (!holidays || !Array.isArray(holidays)) return false
@@ -1642,22 +1537,6 @@ export function OrdersTable({
                           >
                             {task.status}
                           </span>
-                          {/* Add error icon for holiday count mismatch */}
-                          {hasHolidayCountMismatch(task) && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AlertCircle className="h-3.5 w-3.5 text-red-500 cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <div className="text-xs">
-                                    <p className="font-semibold">Holiday count outdated</p>
-                                    <p>This task needs holiday count updates due to holiday changes</p>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
                         </div>
                       )}
                     </TableCell>

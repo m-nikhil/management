@@ -86,8 +86,8 @@ export default function UpcomingTasksPage() {
       // Filter for overdue tasks (due before today) - always exclude completed tasks
       const overdue = visibleTasks.filter((task) => {
         // Check if due date is before today and task is not completed
-        const dueDate = parseISO(task.dueDate)
-        return isBefore(dueDate, today) && task.status !== "Completed"
+        const endDate = parseISO(task.endDate)
+        return isBefore(endDate, today) && task.status !== "Completed"
       })
 
       // Set updating flag to prevent loops
